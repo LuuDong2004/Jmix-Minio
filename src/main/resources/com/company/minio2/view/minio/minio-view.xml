@@ -1,0 +1,57 @@
+<view xmlns="http://jmix.io/schema/flowui/view"
+      title="msg://minioView.title">
+    <data>
+        <collection id="bucketsDc"
+                    class="com.company.minio2.dto.BucketDto"/>
+        <collection id="filesDc"
+                    class="com.company.minio2.dto.FileDto"/>
+    </data>
+
+    <layout width="100%" height="100%">
+        <split width="100%" height="100%" splitterPosition="30">
+            <!-- LEFT -->
+            <vbox width="100%" height="100%">
+                <hbox spacing="true">
+                    <button id="createBucketBtn"
+                            text="New"
+                            classNames="new-bucket-btn"/>
+                    <button id="deleteBucketBtn"
+                            text="Delete"
+                            classNames="btn-delete"
+                            themeNames="error"/>
+                </hbox>
+
+                <treeDataGrid id="bucketsTable"
+                              dataContainer="bucketsDc"
+                              hierarchyProperty="parent"
+                              width="100%" height="100%">
+                    <columns>
+                        <column property="bucketName" header="Name" autoWidth="true"/>
+                    </columns>
+                </treeDataGrid>
+            </vbox>
+
+            <!-- RIGHT -->
+            <vbox width="100%" height="100%">
+                <hbox spacing="true" alignItems="CENTER">
+                    <textField id="prefixField" placeholder="Search file.."/>
+                    <fileUploadField id="uploadField" classNames="btn-upload"/>
+                    <button id="searchBtn" text="Search" classNames="btn-search"/>
+                    <button id="downloadBtn" text="Download" classNames="btn-download"/>
+                    <button id="deleteBtn" text="Delete" classNames="btn-delete" themeNames="error"/>
+                </hbox>
+                <dataGrid id="filesTable"
+                          dataContainer="filesDc"
+                          width="100%" height="100%">
+                    <columns>
+                        <column property="key"          header="Name"/>
+                        <column property="size"         header="Size"/>
+                        <column property="Type"  header="Type"/>
+                        <column property="lastModified" header="Date"/>
+                    </columns>
+                </dataGrid>
+                <label id="statusLabel"/>
+            </vbox>
+        </split>
+    </layout>
+</view>
