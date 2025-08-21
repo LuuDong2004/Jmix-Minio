@@ -4,7 +4,7 @@
         <collection id="bucketsDc"
                     class="com.company.minio2.dto.BucketDto"/>
         <collection id="filesDc"
-                    class="com.company.minio2.dto.FileDto"/>
+                    class="com.company.minio2.dto.ObjectDto"/>
     </data>
 
     <layout width="100%" height="100%">
@@ -21,7 +21,7 @@
                             themeNames="error"/>
                 </hbox>
 
-                <treeDataGrid id="bucketsTable"
+                <treeDataGrid id="buckets"
                               dataContainer="bucketsDc"
                               hierarchyProperty="parent"
                               width="100%" height="100%">
@@ -40,17 +40,17 @@
                     <button id="downloadBtn" text="Download" classNames="btn-download"/>
                     <button id="deleteBtn" text="Delete" classNames="btn-delete" themeNames="error"/>
                 </hbox>
-                <dataGrid id="filesTable"
+                <dataGrid id="object"
                           dataContainer="filesDc"
                           width="100%" height="100%">
                     <columns>
-                        <column property="key"          header="Name"/>
+                        <column property="name"          header="Name"/>
                         <column property="size"         header="Size"/>
-                        <column property="Type"  header="Type"/>
+                        <column property="type"         header="Type"/>
                         <column property="lastModified" header="Date"/>
                     </columns>
                 </dataGrid>
-                <label id="statusLabel"/>
+<!--                <label id="statusLabel"/>-->
             </vbox>
         </split>
     </layout>

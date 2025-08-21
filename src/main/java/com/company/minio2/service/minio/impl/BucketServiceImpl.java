@@ -4,12 +4,9 @@ import com.company.minio2.dto.BucketDto;
 import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
 import com.company.minio2.service.minio.IBucketService;
-import io.minio.ListBucketsArgs;
-import io.minio.ListObjectsArgs;
-import io.minio.Result;
+import io.minio.*;
 import io.minio.messages.Item;
 import org.springframework.stereotype.Service;
-import io.minio.MinioClient;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -45,6 +42,7 @@ public class BucketServiceImpl implements IBucketService {
             throw new MinioException("Không thể load buckets!" , e);
         }
     }
+
     //tree service
     @Override
     public List<BucketDto> listBucketFolderTree() {
@@ -77,7 +75,7 @@ public class BucketServiceImpl implements IBucketService {
 
                     for (int i = 0; i < parts.length - 1; i++) {
                         String folder = parts[i];
-                        path += "/" + folder;
+                        path += folder + "/";
                         String id = b.getBucketName() + ":" + path;
 
                         BucketDto folderNode = index.get(id);
@@ -101,14 +99,13 @@ public class BucketServiceImpl implements IBucketService {
         }
     }
 
-
     @Override
     public void removeBucket(String bucketName){
         try{
-            var buckets = mc.listBuckets(ListBucketsArgs.builder().build());
-            buckets.remove(bucketName);
+            mc.removeBucket(RemoveBucketArgs.builder().bucket(bucketName).build());
         }catch(Exception e){
             throw new MinioException("Không thể xóa bucket này!" , e);
         }
     }
+
 }

@@ -6,8 +6,8 @@ import org.springframework.lang.Nullable;
 
 
 public enum TreeNode implements EnumClass<String> {
-    BUCKET("B"),
-    FOLDER("F");
+    BUCKET("BUCKET"),
+    FOLDER("FOLDER");
     private final String id;
 
     TreeNode(String id) {

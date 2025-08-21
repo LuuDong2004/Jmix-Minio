@@ -6,8 +6,6 @@ import java.util.List;
 
 public interface IBucketService {
     List<BucketDto> getAllBuckets();
-
     List<BucketDto> listBucketFolderTree();
-    //void createBucket(String bucketName);
     void removeBucket(String bucketName);
 }

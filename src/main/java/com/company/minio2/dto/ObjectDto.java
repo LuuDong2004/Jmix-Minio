@@ -3,30 +3,29 @@ import io.jmix.core.entity.annotation.JmixId;
 import io.jmix.core.metamodel.annotation.JmixEntity;
 
 import io.jmix.core.metamodel.annotation.JmixProperty;
-import org.eclipse.persistence.jpa.jpql.parser.DateTime;
 
 import java.time.LocalDateTime;
 
 @JmixEntity(name="minio_file")
-public class FileDto {
+public class ObjectDto {
     @JmixId
     private String key;
     @JmixProperty(mandatory = true)
     private Long size;
     @JmixProperty(mandatory = true)
-    private String Type;
+    private String type;
     @JmixProperty(mandatory = true)
     private LocalDateTime lastModified;
     @JmixProperty(mandatory = true)
     private String name;
 
-    public FileDto() {
+    public ObjectDto() {
     }
 
-    public FileDto(String key, Long size, String type, LocalDateTime lastModified, String name) {
+    public ObjectDto(String key, Long size, String type, LocalDateTime lastModified, String name) {
         this.key = key;
         this.size = size;
-        Type = type;
+        this.type = type;
         this.lastModified = lastModified;
         this.name = name;
     }
@@ -48,11 +47,11 @@ public class FileDto {
     }
 
     public String getType() {
-        return Type;
+        return type;
     }
 
     public void setType(String type) {
-        Type = type;
+        this.type = type;
     }
 
     public LocalDateTime getLastModified() {
