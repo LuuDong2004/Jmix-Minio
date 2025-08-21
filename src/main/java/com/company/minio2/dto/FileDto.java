@@ -1,24 +1,35 @@
 package com.company.minio2.dto;
+
 import io.jmix.core.entity.annotation.JmixId;
 import io.jmix.core.metamodel.annotation.JmixEntity;
-
 import io.jmix.core.metamodel.annotation.JmixProperty;
-import org.eclipse.persistence.jpa.jpql.parser.DateTime;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
-@JmixEntity(name="minio_file")
+@JmixEntity(name = "minio_file")
 public class FileDto {
     @JmixId
     private String key;
+
+    private List<FileDto> children;
+
     @JmixProperty(mandatory = true)
     private Long size;
     @JmixProperty(mandatory = true)
-    private String Type;
+    private String type;
     @JmixProperty(mandatory = true)
     private LocalDateTime lastModified;
     @JmixProperty(mandatory = true)
     private String name;
+
+    public List<FileDto> getChildren() {
+        return children;
+    }
+
+    public void setChildren(List<FileDto> children) {
+        this.children = children;
+    }
 
     public FileDto() {
     }
@@ -26,7 +37,7 @@ public class FileDto {
     public FileDto(String key, Long size, String type, LocalDateTime lastModified, String name) {
         this.key = key;
         this.size = size;
-        Type = type;
+        this.type = type;
         this.lastModified = lastModified;
         this.name = name;
     }
@@ -47,12 +58,12 @@ public class FileDto {
         this.size = size;
     }
 
-    public String getType() {
-        return Type;
+    public void setType(TreeNode type) {
+        this.type = type == null ? null : type.getId();
     }
 
-    public void setType(String type) {
-        Type = type;
+    public TreeNode getType() {
+        return type == null ? null : TreeNode.fromId(type);
     }
 
     public LocalDateTime getLastModified() {
