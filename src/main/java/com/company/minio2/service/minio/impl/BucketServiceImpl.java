@@ -21,8 +21,6 @@ public class BucketServiceImpl implements IBucketService {
 
     private final MinioClient mc;
 
-
-
     public BucketServiceImpl(MinioClient mc) {
         this.mc = mc;
     }
@@ -76,10 +74,9 @@ public class BucketServiceImpl implements IBucketService {
                     String path = "";
                     BucketDto parent = b;
 
-
                     for (int i = 0; i < parts.length - 1; i++) {
                         String folder = parts[i];
-                        path += "/" + folder;
+                        path += folder + "/";   // ✅ luôn kết thúc bằng "/"
                         String id = b.getBucketName() + ":" + path;
 
                         BucketDto folderNode = index.get(id);
@@ -87,7 +84,7 @@ public class BucketServiceImpl implements IBucketService {
                             folderNode = new BucketDto();
                             folderNode.setId(id);
                             folderNode.setBucketName(folder);
-                            folderNode.setPath(path);
+                            folderNode.setPath(path);  // ✅ path chuẩn
                             folderNode.setType(TreeNode.FOLDER);
                             folderNode.setParent(parent);
                             nodes.add(folderNode);

@@ -6,5 +6,4 @@ import java.util.List;
 
 public interface FileService {
     List<FileDto> getAllFromBucket(String bucket, String prefix);
-    List<FileDto> getAllFromFolder(String folder, String prefix);
 }

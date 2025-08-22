@@ -185,18 +185,33 @@ public class MinioView extends StandardView {
 
     private void loadFiles() {
         try {
-            String bucket = getSelectedBucketName();
-            if (bucket == null || bucket.isBlank()) {
+            BucketDto selected = bucketsTable.getSingleSelectedItem();
+            if (selected == null) {
                 filesDc.setItems(List.of());
                 return;
             }
-            String prefix = prefixField.getValue();
-            List<FileDto> list = fileService.getAllFromBucket(bucket, prefix == null ? "" : prefix);
+            // Luôn tìm bucket gốc
+            BucketDto root = selected;
+            while (root.getParent() != null) {
+                root = root.getParent();
+            }
+            String bucketName = root.getBucketName();
+
+            // Prefix là path của folder hiện tại (nếu là folder)
+            String prefix = "";
+            if (TreeNode.FOLDER.equals(selected.getType())) {
+                prefix = selected.getPath();
+            }
+
+            List<FileDto> list = fileService.getAllFromBucket(bucketName, prefix);
             filesDc.setItems(list);
+
         } catch (Exception e) {
             Notification.show("Load error: " + e.getMessage());
         }
     }
+
+
 
     private void initFileTableColumns() {
         // remove old name column if exists

@@ -28,12 +28,14 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public List<FileDto> getAllFromBucket(String bucket,String prefix){
-        //String p = normalizePrefix(prefix);
+
         try{
+            String p = normalizePrefix(prefix);
             Iterable<Result<Item>> item = mc.listObjects(
                     ListObjectsArgs.builder()
                             .bucket(bucket)
-                            .prefix("")
+                            .prefix(p)
+                            .delimiter("/")   // ✅ thêm dòng này
                             .recursive(false)
                             .build()
             );
@@ -43,7 +45,6 @@ public class FileServiceImpl implements FileService {
                 String key = it.objectName();
                 if (key == null || key.isBlank()) continue;
                 FileDto file = new FileDto();
-                String p = normalizePrefix(prefix);
                 file.setName(extractDisplayName(p, key));
                 file.setType(it.isDir() ? TreeNode.FOLDER : TreeNode.FILE);
                 file.setSize(it.isDir() ? null : it.size());
@@ -55,37 +56,6 @@ public class FileServiceImpl implements FileService {
             return listFile;
         }catch (Exception e){
             throw new MinioException("Danh sách file của bucket " + bucket + " hiển thị lỗi!", e);
-        }
-    }
-
-    @Override
-    public List<FileDto> getAllFromFolder(String folder, String prefix) {
-        try{
-            Iterable<Result<Item>> item = mc.listObjects(
-                    ListObjectsArgs.builder()
-                            .bucket(folder)
-                            .prefix("")
-                            .recursive(false)
-                            .build()
-            );
-            List<FileDto> listFile = new ArrayList<>();
-            for (Result<Item> r : item) {
-                Item it = r.get();
-                String key = it.objectName();
-                if (key == null || key.isBlank()) continue;
-                FileDto file = new FileDto();
-                String p = normalizePrefix(prefix);
-                file.setName(extractDisplayName(p, key));
-                file.setType(it.isDir() ? TreeNode.FOLDER : TreeNode.FILE);
-                file.setSize(it.isDir() ? null : it.size());
-                file.setLastModified(
-                        (it.isDir() || it.lastModified() == null) ? null : it.lastModified().toLocalDateTime()
-                );
-                listFile.add(file);
-            }
-            return listFile;
-        }catch (Exception e){
-            throw new MinioException("Danh sách file của bucket " + folder + " hiển thị lỗi!", e);
         }
     }
 
