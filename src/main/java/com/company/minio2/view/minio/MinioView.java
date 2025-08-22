@@ -20,6 +20,7 @@ import com.vaadin.flow.router.Route;
 import io.jmix.flowui.component.grid.DataGrid;
 import io.jmix.flowui.component.grid.TreeDataGrid;
 import io.jmix.flowui.component.textfield.TypedTextField;
+import io.jmix.flowui.kit.action.ActionPerformedEvent;
 import io.jmix.flowui.kit.component.button.JmixButton;
 import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.view.*;
@@ -69,10 +70,8 @@ public class MinioView extends StandardView {
         try {
             // Lấy danh sách bucket dạng tree (root level là các bucket)
             List<BucketDto> list = bucketService.listBucketFolderTree();
-
             // Gán danh sách bucket vào DataContainer
             bucketsDc.setItems(list);
-
             bucketsTable.addSelectionListener(e -> loadFiles());
         } catch (Exception e) {
             Notification.show("Load buckets failed: " + e.getMessage());
@@ -91,7 +90,6 @@ public class MinioView extends StandardView {
             List<FileDto> list = fileService.getAllFromBucket(bucketName, prefix == null ? "" : prefix);
             filesDc.setItems(list);
             Notification.show("Danh sách folder and file của bucket: " + bucketName);
-
         } catch (Exception e) {
             Notification.show("Load folder and file failed: " + e.getMessage());
         }
@@ -100,7 +98,6 @@ public class MinioView extends StandardView {
     private String getSelectedBucketName() {
         BucketDto selected = bucketsTable == null ? null : bucketsTable.getSingleSelectedItem();
         if (selected == null) return null;
-
         // đi ngược lên root (bucket gốc)
         BucketDto root = selected;
         while (root.getParent() != null) {
@@ -113,10 +110,8 @@ public class MinioView extends StandardView {
         if (bucketsTable.getColumnByKey("name") != null) {
             bucketsTable.removeColumn(bucketsTable.getColumnByKey("name"));
         }
-
         TreeDataGrid.Column<BucketDto> nameColumn =
                 bucketsTable.addComponentHierarchyColumn(this::renderFolderItem);
-
         nameColumn.setHeader("Bucket");
         bucketsTable.setColumnPosition(nameColumn, 0);
     }
@@ -126,7 +121,6 @@ public class MinioView extends StandardView {
         layout.setAlignItems(FlexComponent.Alignment.CENTER);
         layout.setPadding(false);
         layout.setSpacing(true);
-
         Icon icon;
         if (item.getType() == TreeNode.BUCKET) {
             icon = VaadinIcon.ARCHIVE.create();
@@ -141,12 +135,9 @@ public class MinioView extends StandardView {
             icon = VaadinIcon.FILE_O.create();
             icon.addClassName("file-item");
         }
-
         icon.getElement().getStyle().set("flex-shrink", "0");
-
         Span text = new Span(item.getBucketName() != null ? item.getBucketName() : "");
         layout.add(icon, text);
-
         return layout;
     }
 
@@ -158,7 +149,6 @@ public class MinioView extends StandardView {
                 Notification.show("Vui lòng chọn bucket hoặc folder");
                 return;
             }
-
             BucketDto selected = selectedItems.iterator().next();
             if (selected.getType() == null || TreeNode.BUCKET.equals(selected.getType())) {
                 bucketService.removeBucket(selected.getBucketName());
@@ -206,16 +196,13 @@ public class MinioView extends StandardView {
                 root = root.getParent();
             }
             String bucketName = root.getBucketName();
-
             // Prefix là path của folder hiện tại (nếu là folder)
             String prefix = "";
             if (TreeNode.FOLDER.equals(selected.getType())) {
                 prefix = selected.getPath();
             }
-
-            List<FileDto> list = fileService.getAllFromBucket(bucketName, prefix);
+            List<FileDto> list = file2Service.listLevel(bucketName, prefix);
             filesDc.setItems(list);
-
         } catch (Exception e) {
             Notification.show("Load error: " + e.getMessage());
         }
@@ -226,13 +213,11 @@ public class MinioView extends StandardView {
         if (filesTable.getColumnByKey("name") != null) {
             filesTable.removeColumn(filesTable.getColumnByKey("name"));
         }
-
         // name column (component column)
         DataGrid.Column<FileDto> nameColumn =
                 filesTable.addComponentColumn(this::renderFileItem).setKey("name");
         nameColumn.setHeader("File / Folder");
         filesTable.setColumnPosition(nameColumn, 0);
-
         // remove old type column if exists
         if (filesTable.getColumnByKey("type") != null) {
             filesTable.removeColumn(filesTable.getColumnByKey("type"));
@@ -244,7 +229,6 @@ public class MinioView extends StandardView {
                 })
                 .setHeader("Type")
                 .setKey("type");
-
         filesTable.setColumnPosition(typeColumn, 2);
     }
 
@@ -254,10 +238,8 @@ public class MinioView extends StandardView {
         layout.setAlignItems(FlexComponent.Alignment.CENTER);
         layout.setPadding(false);
         layout.setSpacing(true);
-
         Icon icon = new Icon();
         TreeNode type = item.getType();
-
         if (type == TreeNode.FOLDER) {
             icon = VaadinIcon.FOLDER.create();
             icon.addClassName("folder-item");
@@ -268,12 +250,9 @@ public class MinioView extends StandardView {
             icon = VaadinIcon.ARCHIVE.create();
             icon.addClassName("bucket-item");
         }
-
         icon.getElement().getStyle().set("flex-shrink", "0");
-
         Span text = new Span(item.getName() != null ? item.getName() : "");
         layout.add(icon, text);
-
         return layout;
     }
 
@@ -298,7 +277,6 @@ public class MinioView extends StandardView {
                 }
                 filesDc.setItems(item.getChildren());
                 prefixField.setValue(newPrefix);
-                Notification.show("Đã load folder: " + item.getName());
             } catch (Exception e) {
                 Notification.show("Load folder con thất bại: " + e.getMessage());
             }
@@ -311,7 +289,7 @@ public class MinioView extends StandardView {
     @Subscribe("backBtn")
     public void onBackBtnClick(ClickEvent<Button> event) {
         String bucketName = getSelectedBucketName();
-        String currentKey = prefixField.getValue(); // key hiện tại (ví dụ: "folder1/folder2/")
+        String currentKey = prefixField.getValue();
         if (currentKey == null || currentKey.isEmpty()) {
             Notification.show("Đang ở thư mục gốc, không thể back");
             return;
@@ -322,7 +300,6 @@ public class MinioView extends StandardView {
                 : currentKey;
         // Tìm slash cuối cùng
         int lastSlash = temp.lastIndexOf('/');
-
         String parentKey;
         if (lastSlash == -1) {
             // Không còn "/" => về root
@@ -332,16 +309,14 @@ public class MinioView extends StandardView {
         }
         try {
             // Load lại nội dung của thư mục cha
-            List<FileDto> parentChildren = file2Service.listLevel(bucketName, parentKey);
+            List<FileDto> parentChildren = fileService.getAllFromBucket(bucketName, parentKey);
             filesDc.setItems(parentChildren);
-
             // Cập nhật prefixField = parentKey
             prefixField.setValue(parentKey);
-
-            Notification.show("Đã back về: " + (parentKey.isEmpty() ? "root" : parentKey));
         } catch (Exception e) {
             Notification.show("Load folder cha thất bại: " + e.getMessage());
         }
     }
+
 
 }

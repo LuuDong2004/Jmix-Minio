@@ -1,0 +1,18 @@
+{
+  "productionMode": false,
+  "eagerServerLoad": false,
+  "npmFolder": "D:\\OJT\\Jmix-Minio",
+  "node.version": "v22.14.0",
+  "node.download.root": "https://nodejs.org/dist/",
+  "frontendFolder": "D:\\OJT\\Jmix-Minio\\.\\src\\main\\frontend",
+  "connect.javaSourceFolder": "D:\\OJT\\Jmix-Minio\\src\\main\\java",
+  "javaResourceFolder": "D:\\OJT\\Jmix-Minio\\src\\main\\resources",
+  "connect.applicationProperties": "D:\\OJT\\Jmix-Minio\\src\\main\\resources\\application.properties",
+  "connect.openApiFile": "D:\\OJT\\Jmix-Minio\\build\\generated-resources\\openapi.json",
+  "project.frontend.generated": "D:\\OJT\\Jmix-Minio\\.\\src\\main\\frontend\\generated",
+  "pnpm.enable": false,
+  "bun.enable": false,
+  "require.home.node": false,
+  "build.folder": "build",
+  "react.enable": true
+}
