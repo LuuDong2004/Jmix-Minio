@@ -34,6 +34,7 @@
             <!-- RIGHT -->
             <vbox width="100%" height="100%">
                 <hbox spacing="true" alignItems="CENTER">
+                    <button id="backBtn" text="⬅ Back" classNames="btn-back"/>
                     <textField id="prefixField" placeholder="Search file.."/>
                     <fileUploadField id="uploadField" classNames="btn-upload"/>
                     <button id="searchBtn" text="Search" classNames="btn-search"/>

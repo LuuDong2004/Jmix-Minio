@@ -3,11 +3,13 @@ package com.company.minio2.view.minio;
 import com.company.minio2.dto.BucketDto;
 import com.company.minio2.dto.FileDto;
 import com.company.minio2.dto.TreeNode;
+import com.company.minio2.service.minio.File2Service;
 import com.company.minio2.service.minio.FileService;
 import com.company.minio2.service.minio.IBucketService;
-import com.company.minio2.service.minio.impl.FileServiceImpl;
 import com.company.minio2.view.main.MainView;
 import com.vaadin.flow.component.ClickEvent;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.grid.ItemDoubleClickEvent;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -26,6 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 import java.util.Set;
 
+
 @Route(value = "minio-view", layout = MainView.class)
 @ViewController(id = "MinioView")
 @ViewDescriptor(path = "minio-view.xml")
@@ -33,6 +36,9 @@ public class MinioView extends StandardView {
 
     @Autowired
     private IBucketService bucketService;
+
+    @Autowired
+    private File2Service file2Service;
 
     @ViewComponent
     private CollectionContainer<BucketDto> bucketsDc;
@@ -93,10 +99,14 @@ public class MinioView extends StandardView {
 
     private String getSelectedBucketName() {
         BucketDto selected = bucketsTable == null ? null : bucketsTable.getSingleSelectedItem();
-        if (selected != null && TreeNode.BUCKET.equals(selected.getType())) {
-            return selected.getBucketName();
+        if (selected == null) return null;
+
+        // đi ngược lên root (bucket gốc)
+        BucketDto root = selected;
+        while (root.getParent() != null) {
+            root = root.getParent();
         }
-        return null;
+        return root.getBucketName();
     }
 
     private void initBucketHierarchyColumn() {
@@ -211,8 +221,6 @@ public class MinioView extends StandardView {
         }
     }
 
-
-
     private void initFileTableColumns() {
         // remove old name column if exists
         if (filesTable.getColumnByKey("name") != null) {
@@ -267,6 +275,73 @@ public class MinioView extends StandardView {
         layout.add(icon, text);
 
         return layout;
+    }
+
+    @Subscribe("filesTable")
+    public void onFileDoubleClick(final ItemDoubleClickEvent<FileDto> event) {
+        FileDto item = event.getItem();
+        if (item == null) return;
+        if (TreeNode.FOLDER.equals(item.getType())) {
+            String bucketName = getSelectedBucketName();
+            if (bucketName == null) {
+                Notification.show("Không tìm thấy bucket");
+                return;
+            }
+            try {
+                String currentPrefix = prefixField.getValue();
+                if (currentPrefix == null) currentPrefix = "";
+                String newPrefix = (currentPrefix.isEmpty() ? "" : currentPrefix) + item.getName() + "/";
+                // nếu chưa load children thì gọi fileService để lấy
+                if (item.getChildren() == null || item.getChildren().isEmpty()) {
+                    List<FileDto> children = file2Service.listLevel(bucketName, item.getKey() == null ? item.getName() + "/" : item.getKey());
+                    item.setChildren(children);
+                }
+                filesDc.setItems(item.getChildren());
+                prefixField.setValue(newPrefix);
+                Notification.show("Đã load folder: " + item.getName());
+            } catch (Exception e) {
+                Notification.show("Load folder con thất bại: " + e.getMessage());
+            }
+        }
+        else if (TreeNode.FILE.equals(item.getType())) {
+            Notification.show("Double click file: " + item.getName());
+        }
+    }
+
+    @Subscribe("backBtn")
+    public void onBackBtnClick(ClickEvent<Button> event) {
+        String bucketName = getSelectedBucketName();
+        String currentKey = prefixField.getValue(); // key hiện tại (ví dụ: "folder1/folder2/")
+        if (currentKey == null || currentKey.isEmpty()) {
+            Notification.show("Đang ở thư mục gốc, không thể back");
+            return;
+        }
+        // Xóa dấu "/" ở cuối
+        String temp = currentKey.endsWith("/")
+                ? currentKey.substring(0, currentKey.length() - 1)
+                : currentKey;
+        // Tìm slash cuối cùng
+        int lastSlash = temp.lastIndexOf('/');
+
+        String parentKey;
+        if (lastSlash == -1) {
+            // Không còn "/" => về root
+            parentKey = "";
+        } else {
+            parentKey = temp.substring(0, lastSlash + 1); // Giữ "/" cuối cùng
+        }
+        try {
+            // Load lại nội dung của thư mục cha
+            List<FileDto> parentChildren = file2Service.listLevel(bucketName, parentKey);
+            filesDc.setItems(parentChildren);
+
+            // Cập nhật prefixField = parentKey
+            prefixField.setValue(parentKey);
+
+            Notification.show("Đã back về: " + (parentKey.isEmpty() ? "root" : parentKey));
+        } catch (Exception e) {
+            Notification.show("Load folder cha thất bại: " + e.getMessage());
+        }
     }
 
 }
