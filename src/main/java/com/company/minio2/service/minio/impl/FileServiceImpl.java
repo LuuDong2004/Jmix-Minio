@@ -29,7 +29,7 @@ public class FileServiceImpl implements IFileService {
 
     @Override
     public List<ObjectDto> getAllFromBucket(String bucket, String prefix){
-            String p = normalizePrefix(prefix);
+        String p = normalizePrefix(prefix);
         try{
             Iterable<Result<Item>> item = minioClient.listObjects(
                     ListObjectsArgs.builder()
@@ -45,19 +45,19 @@ public class FileServiceImpl implements IFileService {
                 String key = it.objectName();
                 if (key == null || key.isBlank()) continue;
                 ObjectDto file = new ObjectDto();
+                file.setKey(key);
                 file.setName(extractDisplayName(p, key));
                 file.setType(it.isDir() ? TreeNode.FOLDER : TreeNode.FILE);
                 file.setSize(it.isDir() ? null : it.size());
-                file.setLastModified(
-                        (it.isDir() || it.lastModified() == null) ? null : it.lastModified().toLocalDateTime()
-                );
+                file.setLastModified((it.isDir() || it.lastModified() == null) ? null : it.lastModified().toLocalDateTime());
                 listFile.add(file);
             }
             return listFile;
-        }catch (Exception e){
+        } catch (Exception e){
             throw new MinioException("Danh sách file của bucket " + bucket + " hiển thị lỗi!", e);
         }
     }
+
 
     @Override
     public List<ObjectDto> openFolder(String bucket , String prefix) {

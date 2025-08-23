@@ -25,9 +25,6 @@
                               dataContainer="bucketsDc"
                               hierarchyProperty="parent"
                               width="100%" height="100%">
-<!--                    <columns>-->
-<!--                        <column property="bucketName" header="Name" autoWidth="true"/>-->
-<!--                    </columns>-->
                 </treeDataGrid>
             </vbox>
 

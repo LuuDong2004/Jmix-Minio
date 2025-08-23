@@ -4,10 +4,14 @@ import io.jmix.core.entity.annotation.JmixId;
 import io.jmix.core.metamodel.annotation.JmixEntity;
 import io.jmix.core.metamodel.annotation.JmixProperty;
 
-@JmixEntity(name="minio_bucket")
+import java.util.List;
+
+@JmixEntity(name = "minio_bucket")
 public class BucketDto {
     @JmixId
     private String id; //id của từng bucket hoặc class folder
+
+    private List<BucketDto> children;
 
     @JmixProperty(mandatory = true)
     private String bucketName; // name của bucket
@@ -19,20 +23,30 @@ public class BucketDto {
     @JmixProperty(mandatory = true)
     private String path;
 
-    @JmixProperty()
-    private TreeNode type;
+    private String type;
 
-    @JmixProperty()
     private BucketDto parent;
+
+    public List<BucketDto> getChildren() {
+        return children;
+    }
+
+    public void setChildren(List<BucketDto> children) {
+        this.children = children;
+    }
+
+    public void setType(TreeNode type) {
+        this.type = type == null ? null : type.getId();
+    }
+
+    public TreeNode getType() {
+        return type == null ? null : TreeNode.fromId(type);
+    }
+
 
     public BucketDto() {
     }
-    public BucketDto(String id, String bucketName, String creatDate, String path) {
-        this.id = id;
-        this.bucketName = bucketName;
-        this.creatDate = creatDate;
-        this.path = path;
-    }
+
 
     public String getId() {
         return id;
@@ -66,14 +80,6 @@ public class BucketDto {
         this.path = path;
     }
 
-    public TreeNode getType() {
-        return type;
-    }
-
-    public void setType(TreeNode type) {
-        this.type = type;
-    }
-
     public BucketDto getParent() {
         return parent;
     }
@@ -81,4 +87,6 @@ public class BucketDto {
     public void setParent(BucketDto parent) {
         this.parent = parent;
     }
+
+
 }

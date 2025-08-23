@@ -24,6 +24,7 @@ public class ObjectDto {
     private String name;
 
     private ObjectDto parent;
+
     @JmixProperty(mandatory = true)
     private String path;
 
