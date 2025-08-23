@@ -7,7 +7,8 @@ import org.springframework.lang.Nullable;
 
 public enum TreeNode implements EnumClass<String> {
     BUCKET("BUCKET"),
-    FOLDER("FOLDER");
+    FOLDER("FOLDER"),
+    FILE("FILE");
     private final String id;
 
     TreeNode(String id) {
@@ -26,5 +27,15 @@ public enum TreeNode implements EnumClass<String> {
             }
         }
         return null;
+    }
+
+    @Override
+    public String toString() {
+        switch (this) {
+            case BUCKET: return "Bucket";
+            case FOLDER: return "Folder";
+            case FILE: return "File";
+            default: return super.toString();
+        }
     }
 }
