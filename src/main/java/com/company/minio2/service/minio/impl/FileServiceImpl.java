@@ -5,9 +5,10 @@ import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
 import com.company.minio2.service.minio.IFileService;
-import io.minio.ListObjectsArgs;
-import io.minio.MinioClient;
-import io.minio.Result;
+import io.minio.*;
+import io.minio.errors.ErrorResponseException;
+import io.minio.messages.DeleteError;
+import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
 import org.springframework.stereotype.Service;
 
@@ -28,9 +29,9 @@ public class FileServiceImpl implements IFileService {
     }
 
     @Override
-    public List<ObjectDto> getAllFromBucket(String bucket, String prefix){
+    public List<ObjectDto> getAllFromBucket(String bucket, String prefix) {
         String p = normalizePrefix(prefix);
-        try{
+        try {
             Iterable<Result<Item>> item = minioClient.listObjects(
                     ListObjectsArgs.builder()
                             .bucket(bucket)
@@ -53,16 +54,17 @@ public class FileServiceImpl implements IFileService {
                 listFile.add(file);
             }
             return listFile;
-        } catch (Exception e){
+        } catch (Exception e) {
             throw new MinioException("Danh sách file của bucket " + bucket + " hiển thị lỗi!", e);
         }
     }
 
 
     @Override
-    public List<ObjectDto> openFolder(String bucket , String prefix) {
+    public List<ObjectDto> openFolder(String bucket, String prefix) {
         return listLevel(bucket, prefix);
     }
+
     @Override
     public List<ObjectDto> listLevel(String bucket, String prefix) {
         final String p = normalizePrefix(prefix);
@@ -100,16 +102,16 @@ public class FileServiceImpl implements IFileService {
         }
     }
 
-    //quay lại object trước đó
     @Override
     public List<ObjectDto> back(String bucket, String currentPrefix) {
         String parent = parentPrefix(currentPrefix);
         return listLevel(bucket, parent);
     }
+
     @Override
     public String parentPrefix(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";
-        String p = prefix.endsWith("/") ? prefix.substring(0, prefix.length()-1) : prefix;
+        String p = prefix.endsWith("/") ? prefix.substring(0, prefix.length() - 1) : prefix;
         int idx = p.lastIndexOf('/');
         return (idx >= 0) ? p.substring(0, idx + 1) : ""; // giữ "/" ở cuối nếu còn cha
     }
@@ -120,13 +122,12 @@ public class FileServiceImpl implements IFileService {
         return prefix.endsWith("/") ? prefix : (prefix + "/");
     }
 
-
     private static String extractDisplayName(String prefix, String key) {
-
         String rest = key.substring(prefix == null ? 0 : prefix.length());
         if (rest.endsWith("/")) rest = rest.substring(0, rest.length() - 1); // bỏ "/" nếu là folder
         int idx = rest.lastIndexOf('/');
         String name = (idx >= 0) ? rest.substring(idx + 1) : rest;
-        return name.trim(); // phòng tên bị lẫn khoảng trắng
+        return name.trim();
     }
+
 }

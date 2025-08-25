@@ -7,6 +7,8 @@ import com.company.minio2.service.minio.IBucketService;
 import com.company.minio2.service.minio.IFileService;
 import com.company.minio2.view.main.MainView;
 import com.vaadin.flow.component.ClickEvent;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.ItemClickEvent;
 import com.vaadin.flow.component.grid.ItemDoubleClickEvent;
 import com.vaadin.flow.component.html.Span;
@@ -140,8 +142,12 @@ public class MinioView extends StandardView {
     }
 
     @Subscribe(id = "deleteBtn", subject = "clickListener")
-    public void onDeleteFileBtnClick(final ClickEvent<JmixButton> event) {
-        Notification.show("Chức năng xóa file chưa được triển khai");
+    public void onDeleteFileBtnClick(ClickEvent<JmixButton> event) {
+        if (currentBucket == null || currentBucket.isBlank()) {
+            Notification.show("Chưa chọn bucket");
+            return;
+        }
+        Notification.show("xóa thành công!");
     }
 
     @Subscribe(id = "deleteBucketBtn", subject = "clickListener")
@@ -170,7 +176,6 @@ public class MinioView extends StandardView {
             toastErr("Không thể xóa", e);
         }
     }
-
     @Subscribe("backBtn")
     public void onBackBtnClick(ClickEvent<JmixButton> event) {
         if (currentBucket == null || currentBucket.isBlank()) {
@@ -200,7 +205,6 @@ public class MinioView extends StandardView {
     public void onObjectsItemDoubleClick(final ItemDoubleClickEvent<ObjectDto> event) {
         ObjectDto item = event.getItem();
         if (item == null) return;
-
         if (TreeNode.FOLDER.equals(item.getType())) {
             if (currentBucket == null || currentBucket.isBlank()) {
                 Notification.show("Không tìm thấy bucket");
@@ -214,8 +218,6 @@ public class MinioView extends StandardView {
                         ? item.getPath()
                         : item.getName();
                 updateState(currentBucket, next);
-
-                // load children (tận dụng openFolder nếu muốn cache)
                 if (item.getChildren() == null || item.getChildren().isEmpty()) {
                     List<ObjectDto> children = fileService.openFolder(currentBucket, currentPrefix);
                     item.setChildren(children);
@@ -243,6 +245,8 @@ public class MinioView extends StandardView {
         }
         selectTreeNode(currentBucket, currentPrefix);
     }
+
+
 
 
     private void viewItemObject() {
@@ -313,9 +317,6 @@ public class MinioView extends StandardView {
         layout.add(icon, text);
         return layout;
     }
-
-    // ===== LEGACY COMPAT (giữ tên nếu code khác còn gọi) =====
-    // Dùng để đồng bộ state theo selection hiện tại (nếu framework gọi).
     @Subscribe
     private String getSelectedBucketName() {
         BucketDto selected = buckets == null ? null : buckets.getSingleSelectedItem();

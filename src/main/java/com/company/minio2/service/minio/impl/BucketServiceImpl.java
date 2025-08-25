@@ -71,8 +71,6 @@ public class BucketServiceImpl implements IBucketService {
                     String[] parts = key.split("/");
                     String path = "";
                     BucketDto parent = b;
-
-
                     for (int i = 0; i < parts.length - 1; i++) {
                         String folder = parts[i];
                         path += folder + "/";
