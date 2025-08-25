@@ -10,6 +10,5 @@ public interface IFileService {
     List<ObjectDto> listLevel(String bucket, String prefix);
     List<ObjectDto> back(String bucket, String currentPrefix);
     String parentPrefix(String prefix);
-    //void delete(String bucket, String keyOrPrefix);
-
+    void delete(String bucket, String objectKey);
 }

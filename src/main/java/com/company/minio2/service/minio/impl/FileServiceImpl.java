@@ -10,6 +10,7 @@ import io.minio.errors.ErrorResponseException;
 import io.minio.messages.DeleteError;
 import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
+import jakarta.validation.constraints.Min;
 import org.springframework.stereotype.Service;
 
 
@@ -101,13 +102,64 @@ public class FileServiceImpl implements IFileService {
             throw new MinioException("List level thất bại (bucket=" + bucket + ", prefix=" + p + ")", e);
         }
     }
+    @Override
+    public void delete(String bucket, String objectKey) {
+        if (bucket == null || bucket.isBlank())
+            System.out.println("Bucket không hợp lệ");
+        if (objectKey == null || objectKey.isBlank())
+            System.out.println("Object key rỗng");
+        try {
+            if (objectKey.endsWith("/")) {
+                // XÓA FOLDER: xóa toàn bộ object có prefix = key
+                Iterable<Result<Item>> it = minioClient.listObjects(
+                        ListObjectsArgs.builder()
+                                .bucket(bucket)
+                                .prefix(objectKey)
+                                .recursive(true)
+                                .build()
+                );
 
+                List<DeleteObject> batch = new ArrayList<>();
+                for (Result<Item> r : it) {
+                    Item item = r.get();
+                    if (item.objectName() != null && !item.objectName().isBlank()) {
+                        batch.add(new DeleteObject(item.objectName()));
+                    }
+                }
+                // Xóa luôn “placeholder” folder (vd: "foo/")
+                batch.add(new DeleteObject(objectKey));
+
+                if (!batch.isEmpty()) {
+                    Iterable<Result<DeleteError>> results = minioClient.removeObjects(
+                            RemoveObjectsArgs.builder()
+                                    .bucket(bucket)
+                                    .objects(batch)
+                                    .build()
+                    );
+                    // Nếu MinIO trả về lỗi xóa một vài object
+                    for (Result<DeleteError> err : results) {
+                        DeleteError de = err.get();
+                       // throw new MinioException("Không thể xóa: " + de.objectName() + " - " + de.message());
+                    }
+                }
+            } else {
+                // XÓA FILE
+                minioClient.removeObject(
+                        RemoveObjectArgs.builder()
+                                .bucket(bucket)
+                                .object(objectKey)
+                                .build()
+                );
+            }
+        } catch (Exception e) {
+            throw new MinioException("Service không thể xóa!", e);
+        }
+    }
     @Override
     public List<ObjectDto> back(String bucket, String currentPrefix) {
         String parent = parentPrefix(currentPrefix);
         return listLevel(bucket, parent);
     }
-
     @Override
     public String parentPrefix(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";
@@ -115,13 +167,15 @@ public class FileServiceImpl implements IFileService {
         int idx = p.lastIndexOf('/');
         return (idx >= 0) ? p.substring(0, idx + 1) : ""; // giữ "/" ở cuối nếu còn cha
     }
-
     //chuẩn hóa
     private static String normalizePrefix(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";
         return prefix.endsWith("/") ? prefix : (prefix + "/");
     }
-
+    private static String normalizeFile(String key) {
+        if (key == null || key.isBlank()) return "";
+        return key.endsWith("/") ? key.substring(0, key.length() - 1) : key;
+    }
     private static String extractDisplayName(String prefix, String key) {
         String rest = key.substring(prefix == null ? 0 : prefix.length());
         if (rest.endsWith("/")) rest = rest.substring(0, rest.length() - 1); // bỏ "/" nếu là folder

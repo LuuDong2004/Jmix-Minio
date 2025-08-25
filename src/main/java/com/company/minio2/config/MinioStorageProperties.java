@@ -10,5 +10,4 @@ public record MinioStorageProperties(
         String bucket,
         int presignExpirySeconds // TTL mặc định cho URL ký sẵn (giây)
 ) {
-
 }

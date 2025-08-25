@@ -24,6 +24,7 @@ import io.jmix.flowui.component.textfield.TypedTextField;
 import io.jmix.flowui.kit.component.button.JmixButton;
 import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.view.*;
+import io.jmix.securitydata.listener.RowLevelRoleEntityChangedEventListener;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.ArrayDeque;
@@ -61,6 +62,8 @@ public class MinioView extends StandardView {
 
     private String currentBucket;
     private String currentPrefix = "";
+    @Autowired
+    private RowLevelRoleEntityChangedEventListener sec_RowLevelRoleEntityChangedEventListener;
 
 
     @Subscribe
@@ -69,6 +72,7 @@ public class MinioView extends StandardView {
         viewItemFile();
         viewItemObject();
     }
+
     private void loadAllBuckets() {
         try {
             List<BucketDto> list = bucketService.listBucketFolderTree();
@@ -143,46 +147,100 @@ public class MinioView extends StandardView {
 
     @Subscribe(id = "deleteBtn", subject = "clickListener")
     public void onDeleteFileBtnClick(ClickEvent<JmixButton> event) {
+        ObjectDto object = objects.getSingleSelectedItem();
         if (currentBucket == null || currentBucket.isBlank()) {
             Notification.show("Chưa chọn bucket");
             return;
         }
-        Notification.show("xóa thành công!");
-    }
-
-    @Subscribe(id = "deleteBucketBtn", subject = "clickListener")
-    public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
+        if (object == null || object.getKey() == null || object.getKey().isBlank()) {
+            Notification.show("Chọn folder or file để xóa!");
+            return;
+        }
         try {
-            Set<BucketDto> selectedItems = buckets.getSelectedItems();
-            if (selectedItems == null || selectedItems.isEmpty()) {
-                Notification.show("Vui lòng chọn bucket hoặc folder");
-                return;
-            }
-            BucketDto selected = selectedItems.iterator().next();
-            if (selected.getType() == null || TreeNode.BUCKET.equals(selected.getType())) {
-                bucketService.removeBucket(selected.getBucketName());
-                Notification.show("Đã xóa bucket: " + selected.getBucketName());
-
-                // nếu đang đứng trong bucket vừa xóa -> reset state
-                if (selected.getBucketName() != null && selected.getBucketName().equals(currentBucket)) {
-                    updateState(null, "");
-                    filesDc.setItems(List.of());
-                }
-                loadAllBuckets();
-            } else {
-                Notification.show("Chưa hỗ trợ xóa folder");
-            }
+            fileService.delete(currentBucket, object.getKey());
+            Notification.show("xóa thành công!" + object.getKey());
+            refreshFiles();
+            loadAllBuckets();
         } catch (Exception e) {
-            toastErr("Không thể xóa", e);
+            Notification.show("Lỗi không thể xóa" + object.getKey() + " của bucket " + currentBucket);
         }
     }
+
+
+@Subscribe(id = "deleteBucketBtn", subject = "clickListener")
+public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
+    try {
+        Set<BucketDto> selectedItems = buckets.getSelectedItems();
+        if (selectedItems == null || selectedItems.isEmpty()) {
+            Notification.show("Vui lòng chọn bucket hoặc folder");
+            return;
+        }
+        BucketDto selected = selectedItems.iterator().next();
+
+        if (TreeNode.BUCKET.equals(selected.getType())) {
+            ConfirmDialog dlg = new ConfirmDialog();
+            dlg.setHeader("Xác nhận");
+            dlg.setText("Xóa BUCKET '" + selected.getBucketName() + "'?\n(Lưu ý: bucket phải rỗng)");
+            dlg.setCancelable(true);
+            dlg.setConfirmText("Xóa");
+            dlg.addConfirmListener(e2 -> {
+                try {
+                    bucketService.removeBucket(selected.getBucketName());
+                    Notification.show("Đã xóa bucket: " + selected.getBucketName());
+
+                    if (selected.getBucketName() != null && selected.getBucketName().equals(currentBucket)) {
+                        updateState(null, "");
+                        filesDc.setItems(List.of());
+                    }
+                    loadAllBuckets();
+                } catch (Exception ex) {
+                    toastErr("Không thể xóa bucket (có thể bucket chưa rỗng).", ex);
+                }
+            });
+            dlg.open();
+
+        } else if (TreeNode.FOLDER.equals(selected.getType())) {
+            final String bucket = selected.getBucketName();
+            String folderPrefix = selected.getPath();
+            if (folderPrefix == null) folderPrefix = "";
+            if (!folderPrefix.isEmpty() && !folderPrefix.endsWith("/")) folderPrefix = folderPrefix + "/";
+
+            ConfirmDialog dlg = new ConfirmDialog();
+            dlg.setHeader("Xác nhận");
+            dlg.setText("Xóa FOLDER '" + folderPrefix + "' và toàn bộ bên trong?");
+            dlg.setCancelable(true);
+            dlg.setConfirmText("Xóa");
+            final String finalFolderPrefix = folderPrefix;
+            dlg.addConfirmListener(e2 -> {
+                try {
+                    fileService.delete(bucket, finalFolderPrefix);
+                    Notification.show("Đã xóa folder: " + finalFolderPrefix);
+
+                    if (bucket != null && bucket.equals(currentBucket)) {
+                        filesDc.setItems(fileService.getAllFromBucket(currentBucket, currentPrefix));
+                    }
+                    loadAllBuckets();
+                } catch (Exception ex) {
+                    toastErr("Không thể xóa folder", ex);
+                }
+            });
+            dlg.open();
+        } else {
+            Notification.show("Vui lòng chọn Bucket hoặc Folder.");
+        }
+    } catch (Exception e) {
+        toastErr("Không thể xóa", e);
+    }
+}
     @Subscribe("backBtn")
     public void onBackBtnClick(ClickEvent<JmixButton> event) {
         if (currentBucket == null || currentBucket.isBlank()) {
-            Notification.show("Chưa chọn bucket."); return;
+            Notification.show("Chưa chọn bucket.");
+            return;
         }
         if (currentPrefix == null || currentPrefix.isBlank()) {
-            Notification.show("Đang ở root."); return;
+            Notification.show("Đang ở root.");
+            return;
         }
         try {
             List<ObjectDto> parentList = fileService.back(currentBucket, currentPrefix);
@@ -198,8 +256,6 @@ public class MinioView extends StandardView {
             toastErr("Lỗi quay lại", ex);
         }
     }
-
-    // ===== GRID EVENTS =====
     // Double click: mở object con bên phải
     @Subscribe("objects")
     public void onObjectsItemDoubleClick(final ItemDoubleClickEvent<ObjectDto> event) {
@@ -245,8 +301,6 @@ public class MinioView extends StandardView {
         }
         selectTreeNode(currentBucket, currentPrefix);
     }
-
-
 
 
     private void viewItemObject() {
@@ -317,6 +371,7 @@ public class MinioView extends StandardView {
         layout.add(icon, text);
         return layout;
     }
+
     @Subscribe
     private String getSelectedBucketName() {
         BucketDto selected = buckets == null ? null : buckets.getSingleSelectedItem();
@@ -369,7 +424,10 @@ public class MinioView extends StandardView {
                             && p.equals(norm(n.getPath())));
             if (ok) {
                 buckets.select(n);
-                try { buckets.expand(n); } catch (Throwable ignore) {}
+                try {
+                    buckets.expand(n);
+                } catch (Throwable ignore) {
+                }
                 return;
             }
             if (n.getChildren() != null) q.addAll(n.getChildren());
