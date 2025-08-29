@@ -6,16 +6,10 @@ import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
 import com.company.minio2.service.minio.IFileService;
 import io.minio.*;
-import io.minio.errors.ErrorResponseException;
-import io.minio.messages.DeleteError;
 import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
-import jakarta.validation.constraints.Min;
 import org.springframework.stereotype.Service;
-
-
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -59,8 +53,6 @@ public class FileServiceImpl implements IFileService {
             throw new MinioException("Danh sách file của bucket " + bucket + " hiển thị lỗi!", e);
         }
     }
-
-
     @Override
     public List<ObjectDto> openFolder(String bucket, String prefix) {
         return listLevel(bucket, prefix);
@@ -86,8 +78,8 @@ public class FileServiceImpl implements IFileService {
                 if (key == null || key.isBlank()) continue;
 
                 ObjectDto dto = new ObjectDto();
-                dto.setKey(key); // full path (vd: "Hihi/test2.txt" hoặc "Hihi/child/")
-                dto.setName(extractDisplayName(p, key)); // chỉ lấy phần tên sau prefix
+                dto.setKey(key);
+                dto.setName(extractDisplayName(p, key));
                 dto.setType(it.isDir() ? TreeNode.FOLDER : TreeNode.FILE);
                 dto.setSize(it.isDir() ? null : it.size());
                 dto.setLastModified(
@@ -104,13 +96,8 @@ public class FileServiceImpl implements IFileService {
     }
     @Override
     public void delete(String bucket, String objectKey) {
-        if (bucket == null || bucket.isBlank())
-            System.out.println("Bucket không hợp lệ");
-        if (objectKey == null || objectKey.isBlank())
-            System.out.println("Object key rỗng");
         try {
             if (objectKey.endsWith("/")) {
-                // XÓA FOLDER: xóa toàn bộ object có prefix = key
                 Iterable<Result<Item>> it = minioClient.listObjects(
                         ListObjectsArgs.builder()
                                 .bucket(bucket)
@@ -126,24 +113,8 @@ public class FileServiceImpl implements IFileService {
                         batch.add(new DeleteObject(item.objectName()));
                     }
                 }
-                // Xóa luôn “placeholder” folder (vd: "foo/")
                 batch.add(new DeleteObject(objectKey));
-
-                if (!batch.isEmpty()) {
-                    Iterable<Result<DeleteError>> results = minioClient.removeObjects(
-                            RemoveObjectsArgs.builder()
-                                    .bucket(bucket)
-                                    .objects(batch)
-                                    .build()
-                    );
-                    // Nếu MinIO trả về lỗi xóa một vài object
-                    for (Result<DeleteError> err : results) {
-                        DeleteError de = err.get();
-                       // throw new MinioException("Không thể xóa: " + de.objectName() + " - " + de.message());
-                    }
-                }
             } else {
-                // XÓA FILE
                 minioClient.removeObject(
                         RemoveObjectArgs.builder()
                                 .bucket(bucket)
@@ -165,16 +136,12 @@ public class FileServiceImpl implements IFileService {
         if (prefix == null || prefix.isBlank()) return "";
         String p = prefix.endsWith("/") ? prefix.substring(0, prefix.length() - 1) : prefix;
         int idx = p.lastIndexOf('/');
-        return (idx >= 0) ? p.substring(0, idx + 1) : ""; // giữ "/" ở cuối nếu còn cha
+        return (idx >= 0) ? p.substring(0, idx + 1) : "";
     }
     //chuẩn hóa
     private static String normalizePrefix(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";
         return prefix.endsWith("/") ? prefix : (prefix + "/");
-    }
-    private static String normalizeFile(String key) {
-        if (key == null || key.isBlank()) return "";
-        return key.endsWith("/") ? key.substring(0, key.length() - 1) : key;
     }
     private static String extractDisplayName(String prefix, String key) {
         String rest = key.substring(prefix == null ? 0 : prefix.length());
@@ -183,5 +150,4 @@ public class FileServiceImpl implements IFileService {
         String name = (idx >= 0) ? rest.substring(idx + 1) : rest;
         return name.trim();
     }
-
 }

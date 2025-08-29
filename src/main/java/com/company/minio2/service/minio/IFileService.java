@@ -11,4 +11,5 @@ public interface IFileService {
     List<ObjectDto> back(String bucket, String currentPrefix);
     String parentPrefix(String prefix);
     void delete(String bucket, String objectKey);
+
 }

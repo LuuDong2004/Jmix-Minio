@@ -42,7 +42,6 @@ public class BucketServiceImpl implements IBucketService {
             throw new MinioException("Không thể load buckets!" , e);
         }
     }
-
     //tree service
     @Override
     public List<BucketDto> listBucketFolderTree() {
@@ -62,7 +61,6 @@ public class BucketServiceImpl implements IBucketService {
                                 .recursive(true)
                                 .build()
                 );
-
                 for (Result<Item> r : it) {
                     Item item = r.get();
                     String key = item.objectName();
@@ -96,7 +94,6 @@ public class BucketServiceImpl implements IBucketService {
             throw new RuntimeException("Build bucket-folder tree failed", e);
         }
     }
-
     @Override
     public void removeBucket(String bucketName){
         try{
@@ -105,5 +102,4 @@ public class BucketServiceImpl implements IBucketService {
             throw new MinioException("Không thể xóa bucket này!" , e);
         }
     }
-
 }

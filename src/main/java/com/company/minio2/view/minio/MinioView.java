@@ -62,8 +62,7 @@ public class MinioView extends StandardView {
 
     private String currentBucket;
     private String currentPrefix = "";
-    @Autowired
-    private RowLevelRoleEntityChangedEventListener sec_RowLevelRoleEntityChangedEventListener;
+
 
 
     @Subscribe
@@ -85,7 +84,7 @@ public class MinioView extends StandardView {
                         buckets.select(first);
                         updateState(first.getBucketName(), "");
                         refreshFiles();
-                        selectTreeNode(currentBucket, currentPrefix);
+                        //selectTreeNode(currentBucket, currentPrefix);
                     });
             bucketsDc.setItems(list);
 
@@ -249,7 +248,7 @@ public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
             // cập nhật prefix về cha
             String newPrefix = fileService.parentPrefix(currentPrefix);
             updateState(currentBucket, newPrefix);
-            selectTreeNode(currentBucket, currentPrefix);
+            //selectTreeNode(currentBucket, currentPrefix);
 
             Notification.show(currentPrefix.isEmpty() ? "Đã về root" : "Back: " + currentPrefix);
         } catch (Exception ex) {
@@ -279,7 +278,7 @@ public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
                     item.setChildren(children);
                 }
                 filesDc.setItems(item.getChildren());
-                selectTreeNode(currentBucket, currentPrefix);
+                //selectTreeNode(currentBucket, currentPrefix);
             } catch (Exception e) {
                 toastErr("Load folder con thất bại", e);
             }
@@ -299,7 +298,7 @@ public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
             Notification.show("name: " + this.currentBucket);
             refreshFiles();
         }
-        selectTreeNode(currentBucket, currentPrefix);
+       // selectTreeNode(currentBucket, currentPrefix);
     }
 
 
@@ -408,29 +407,28 @@ public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
         Notification.show(msg + ": " + (e.getMessage() == null ? e.toString() : e.getMessage()));
     }
 
-
-    @SuppressWarnings("unused")
-    private void selectTreeNode(String bucket, String prefix) {
-        if (bucketsDc == null || bucketsDc.getItems() == null) return;
-        String p = norm(prefix);
-        ArrayDeque<BucketDto> q = new ArrayDeque<>(bucketsDc.getItems());
-        while (!q.isEmpty()) {
-            BucketDto n = q.remove();
-            boolean ok =
-                    (TreeNode.BUCKET.equals(n.getType()) && p.isBlank()
-                            && bucket != null && bucket.equals(n.getBucketName()))
-                            || (TreeNode.FOLDER.equals(n.getType())
-                            && bucket != null && bucket.equals(n.getBucketName())
-                            && p.equals(norm(n.getPath())));
-            if (ok) {
-                buckets.select(n);
-                try {
-                    buckets.expand(n);
-                } catch (Throwable ignore) {
-                }
-                return;
-            }
-            if (n.getChildren() != null) q.addAll(n.getChildren());
-        }
-    }
+//    @SuppressWarnings("unused")
+//    private void selectTreeNode(String bucket, String prefix) {
+//        if (bucketsDc == null || bucketsDc.getItems() == null) return;
+//        String p = norm(prefix);
+//        ArrayDeque<BucketDto> q = new ArrayDeque<>(bucketsDc.getItems());
+//        while (!q.isEmpty()) {
+//            BucketDto n = q.remove();
+//            boolean ok =
+//                    (TreeNode.BUCKET.equals(n.getType()) && p.isBlank()
+//                            && bucket != null && bucket.equals(n.getBucketName()))
+//                            || (TreeNode.FOLDER.equals(n.getType())
+//                            && bucket != null && bucket.equals(n.getBucketName())
+//                            && p.equals(norm(n.getPath())));
+//            if (ok) {
+//                buckets.select(n);
+//                try {
+//                    buckets.expand(n);
+//                } catch (Throwable ignore) {
+//                }
+//                return;
+//            }
+//            if (n.getChildren() != null) q.addAll(n.getChildren());
+//        }
+//    }
 }

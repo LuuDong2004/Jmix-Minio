@@ -11,7 +11,6 @@ import java.util.List;
 public class ObjectDto {
     @JmixId
     private String key;
-
     private List<ObjectDto> children;
 
     @JmixProperty(mandatory = true)
