@@ -9,6 +9,8 @@ import io.minio.*;
 import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
 import org.springframework.stereotype.Service;
+
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -131,6 +133,23 @@ public class FileServiceImpl implements IFileService {
         String parent = parentPrefix(currentPrefix);
         return listLevel(bucket, parent);
     }
+    @Override
+    public String uploadFile(String bucket, String objectKey, InputStream stream, long size, String contentType) {
+        try (stream) {
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .stream(stream, size, -1)
+                            .contentType(contentType)
+                            .build()
+            );
+            return objectKey;
+        } catch (Exception e) {
+            throw new MinioException("Tải file: " + objectKey + " lên bucket " + bucket, e);
+        }
+    }
+
     @Override
     public String parentPrefix(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";

@@ -7,7 +7,6 @@ import com.company.minio2.service.minio.IBucketService;
 import com.company.minio2.service.minio.IFileService;
 import com.company.minio2.view.main.MainView;
 import com.vaadin.flow.component.ClickEvent;
-import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.ItemClickEvent;
 import com.vaadin.flow.component.grid.ItemDoubleClickEvent;
@@ -18,16 +17,19 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.router.Route;
+import io.jmix.core.FileStorage;
 import io.jmix.flowui.component.grid.DataGrid;
 import io.jmix.flowui.component.grid.TreeDataGrid;
 import io.jmix.flowui.component.textfield.TypedTextField;
+import io.jmix.flowui.component.upload.FileUploadField;
 import io.jmix.flowui.kit.component.button.JmixButton;
 import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.view.*;
-import io.jmix.securitydata.listener.RowLevelRoleEntityChangedEventListener;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.util.ArrayDeque;
+
+import java.io.InputStream;
 import java.util.List;
 import java.util.Set;
 
@@ -59,9 +61,13 @@ public class MinioView extends StandardView {
     @ViewComponent
     private TypedTextField<String> prefixField;
 
+    @ViewComponent
+    private FileUploadField uploadField;
 
     private String currentBucket;
     private String currentPrefix = "";
+    @Autowired
+    private FileStorage fileStorage;
 
 
 
@@ -71,6 +77,7 @@ public class MinioView extends StandardView {
         viewItemFile();
         viewItemObject();
     }
+
 
     private void loadAllBuckets() {
         try {
@@ -298,7 +305,56 @@ public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
             Notification.show("name: " + this.currentBucket);
             refreshFiles();
         }
-       // selectTreeNode(currentBucket, currentPrefix);
+    }
+    @Subscribe("uploadBtn")
+    public void onUploadBtnClick(ClickEvent<JmixButton> event) {
+        if (currentBucket == null || currentBucket.isBlank()) {
+            Notification.show("Chưa chọn bucket");
+            return;
+        }
+
+        Object val = uploadField.getValue(); // có thể là FileRef (mặc định) hoặc byte[] (memory)
+        if (val == null) {
+            Notification.show("Chưa chọn file để upload");
+            return;
+        }
+
+        try {
+            String fileName;
+            InputStream in;
+            long size;
+            String contentType = null; // để service tự đoán nếu cần
+
+            if (val instanceof io.jmix.core.FileRef ref) {
+                // CHẾ ĐỘ MẶC ĐỊNH (không memory): getValue() = FileRef
+                fileName = ref.getFileName();
+                in = fileStorage.openStream(ref);
+                size = -1L; // size không bắt buộc; service của bạn xử lý size=-1 theo SDK
+            } else if (val instanceof byte[] data) {
+                // CHẾ ĐỘ MEMORY: getValue() = byte[]
+                fileName = uploadField.getFileName(); // lấy tên từ component
+                in = new java.io.ByteArrayInputStream(data);
+                size = data.length;
+                //contentType = uploadField.getMimeType(); // nếu có
+            } else {
+                Notification.show("Kiểu dữ liệu upload không hỗ trợ: " + val.getClass().getSimpleName());
+                return;
+            }
+
+            String prefix = (currentPrefix == null || currentPrefix.isBlank())
+                    ? "" : (currentPrefix.endsWith("/") ? currentPrefix : currentPrefix + "/");
+            String objectKey = (prefix + fileName).replace("\\", "/");
+            if (objectKey.startsWith("/")) objectKey = objectKey.substring(1);
+
+            fileService.uploadFile(currentBucket, objectKey, in, size, contentType);
+
+            filesDc.setItems(fileService.getAllFromBucket(currentBucket, currentPrefix));
+            Notification.show("Đã upload: " + fileName);
+        } catch (Exception ex) {
+            Notification.show("Upload lỗi: " + ex.getMessage());
+        } finally {
+            uploadField.clear();
+        }
     }
 
 
@@ -406,29 +462,4 @@ public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
     private static void toastErr(String msg, Exception e) {
         Notification.show(msg + ": " + (e.getMessage() == null ? e.toString() : e.getMessage()));
     }
-
-//    @SuppressWarnings("unused")
-//    private void selectTreeNode(String bucket, String prefix) {
-//        if (bucketsDc == null || bucketsDc.getItems() == null) return;
-//        String p = norm(prefix);
-//        ArrayDeque<BucketDto> q = new ArrayDeque<>(bucketsDc.getItems());
-//        while (!q.isEmpty()) {
-//            BucketDto n = q.remove();
-//            boolean ok =
-//                    (TreeNode.BUCKET.equals(n.getType()) && p.isBlank()
-//                            && bucket != null && bucket.equals(n.getBucketName()))
-//                            || (TreeNode.FOLDER.equals(n.getType())
-//                            && bucket != null && bucket.equals(n.getBucketName())
-//                            && p.equals(norm(n.getPath())));
-//            if (ok) {
-//                buckets.select(n);
-//                try {
-//                    buckets.expand(n);
-//                } catch (Throwable ignore) {
-//                }
-//                return;
-//            }
-//            if (n.getChildren() != null) q.addAll(n.getChildren());
-//        }
-//    }
 }
