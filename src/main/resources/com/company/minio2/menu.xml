@@ -4,6 +4,9 @@
     <menu id="application" title="msg://com.company.minio2/menu.application.title" opened="true">
         <item view="User.list" title="msg://com.company.minio2.view.user/UserListView.title"/>
         <item view="MinioView" title="msg://com.company.minio2.view.minio/minioView.title"/>
+        <item view="AssignPermissionDialog"
+              title="msg://com.company.minio2.view.assignpermissiondialog/assignPermissionDialog.title"/>
+        <item view="EditPermission" title="msg://com.company.minio2.view.editpermission/editPermission.title"/>
     </menu>
 
 </menu-config>

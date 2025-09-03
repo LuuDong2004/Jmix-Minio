@@ -6,16 +6,14 @@ import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
 import com.company.minio2.service.minio.IFileService;
 import io.minio.*;
-import io.minio.errors.ErrorResponseException;
 import io.minio.messages.DeleteError;
 import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
-import jakarta.validation.constraints.Min;
 import org.springframework.stereotype.Service;
 
 
+import java.io.ByteArrayInputStream;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -52,6 +50,10 @@ public class FileServiceImpl implements IFileService {
                 file.setType(it.isDir() ? TreeNode.FOLDER : TreeNode.FILE);
                 file.setSize(it.isDir() ? null : it.size());
                 file.setLastModified((it.isDir() || it.lastModified() == null) ? null : it.lastModified().toLocalDateTime());
+                if (file.getName() != null
+                        && (file.getName().startsWith(".") || file.getName().endsWith(".keep"))) {
+                    continue;
+                }
                 listFile.add(file);
             }
             return listFile;
@@ -102,6 +104,7 @@ public class FileServiceImpl implements IFileService {
             throw new MinioException("List level thất bại (bucket=" + bucket + ", prefix=" + p + ")", e);
         }
     }
+
     @Override
     public void delete(String bucket, String objectKey) {
         if (bucket == null || bucket.isBlank())
@@ -155,6 +158,39 @@ public class FileServiceImpl implements IFileService {
             throw new MinioException("Service không thể xóa!", e);
         }
     }
+
+    @Override
+    public void createFolder(String bucket, String folderName) {
+        if (bucket == null || bucket.isBlank()) {
+            return;
+        }
+        if (folderName == null || folderName.isBlank()) {
+            return;
+        }
+        try {
+            // chuẩn hóa folderName => luôn có dấu "/"
+            String prefix = normalizePrefix(folderName);
+
+            // object placeholder ẩn để tránh bị xóa folder rỗng
+            String placeholder = prefix + ".keep";
+
+            ByteArrayInputStream emptyStream = new ByteArrayInputStream(new byte[0]);
+
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(placeholder)
+                            .stream(emptyStream, 0, -1)
+                            .contentType("application/octet-stream")
+                            .build()
+            );
+
+            System.out.println("Đã tạo folder '" + folderName + "' trong bucket '" + bucket + "' với file ẩn .keep");
+        } catch (Exception e) {
+            throw new MinioException("Không thể tạo folder " + folderName + " trong bucket " + bucket, e);
+        }
+    }
+
     @Override
     public List<ObjectDto> back(String bucket, String currentPrefix) {
         String parent = parentPrefix(currentPrefix);
@@ -183,5 +219,7 @@ public class FileServiceImpl implements IFileService {
         String name = (idx >= 0) ? rest.substring(idx + 1) : rest;
         return name.trim();
     }
+
+
 
 }

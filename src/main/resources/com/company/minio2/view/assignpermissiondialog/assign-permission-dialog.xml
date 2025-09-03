@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<view xmlns="http://jmix.io/schema/flowui/view"
+      title="msg://assignPermissionDialog.title">
+    <data>
+        <collection id="permissionsDc" class="com.company.minio2.entity.Permission">
+            <loader id="permissionsDl">
+                <query>
+                    <![CDATA[select p from Permission p
+                where p.filePath = :filePath]]>
+                </query>
+            </loader>
+        </collection>
+        <collection id="usersDc"
+                    class="com.company.minio2.entity.User">
+            <fetchPlan extends="_base">
+                <property name="username"/>
+            </fetchPlan>
+            <loader id="usersDl" readOnly="true">
+                <query><![CDATA[select e from User e order by e.username]]></query>
+            </loader>
+        </collection>
+    </data>
+    <layout height="500px" width="500px">
+        <textArea id="fileKeyArea" label="Object key: " readOnly="true" width="100%"/>
+        <vbox spacing="true" width="100%" height="400px" >
+            <dataGrid id="usersDataGrid" dataContainer="usersDc" width="100%" height="200px">
+                <columns>
+                    <column property="username" header="User" />
+                </columns>
+            </dataGrid>
+        </vbox>
+        <button id="editBtn" text="Edit"/>
+        <vbox width="100%" height="100%">
+            <dataGrid id="permissionDataGrid" dataContainer="permissionsDc">
+                <columns>
+                    <column property="permission" header="Permission" />
+                </columns>
+            </dataGrid>
+        </vbox>
+        <button id="saveBtn" text="Save"/>
+    </layout>
+</view>
