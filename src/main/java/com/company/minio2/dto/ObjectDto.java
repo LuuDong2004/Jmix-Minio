@@ -21,9 +21,7 @@ public class ObjectDto {
     private LocalDateTime lastModified;
     @JmixProperty(mandatory = true)
     private String name;
-
     private ObjectDto parent;
-
     @JmixProperty(mandatory = true)
     private String path;
 

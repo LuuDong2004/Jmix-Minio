@@ -32,13 +32,15 @@
             <vbox width="100%" height="100%">
                 <hbox spacing="true" alignItems="CENTER">
                     <textField id="prefixField" placeholder="Search file.."/>
-
-                    <button id="uploadBtn" text="Upload"/>
+                    <upload id="multiUpload"
+                            dropAllowed="true"
+                            maxFileSize="104857600" />
                     <button id="searchBtn" text="Search" classNames="btn-search"/>
                     <button id="downloadBtn" text="Download" classNames="btn-download"/>
                     <button id="deleteBtn" text="Delete" classNames="btn-delete" themeNames="error"/>
                     <button id="backBtn" text="Back"/>
                 </hbox>
+                <hbox id="multiUploadBox" spacing="true" alignItems="CENTER"/>
                 <dataGrid id="objects"
                           dataContainer="filesDc"
                           width="100%" height="100%">
