@@ -32,9 +32,7 @@
             <vbox width="100%" height="100%">
                 <hbox spacing="true" alignItems="CENTER">
                     <textField id="prefixField" placeholder="Search file.."/>
-                    <upload id="multiUpload"
-                            dropAllowed="true"
-                            maxFileSize="104857600" />
+                    <upload id="multiUpload"/>
                     <button id="searchBtn" text="Search" classNames="btn-search"/>
                     <button id="downloadBtn" text="Download" classNames="btn-download"/>
                     <button id="deleteBtn" text="Delete" classNames="btn-delete" themeNames="error"/>

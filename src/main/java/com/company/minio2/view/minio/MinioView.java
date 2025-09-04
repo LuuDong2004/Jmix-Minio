@@ -17,24 +17,22 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
-import com.vaadin.flow.component.upload.SucceededEvent;
 import com.vaadin.flow.component.upload.Upload;
-import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import com.vaadin.flow.router.Route;
 import io.jmix.flowui.component.grid.DataGrid;
 import io.jmix.flowui.component.grid.TreeDataGrid;
 import io.jmix.flowui.component.textfield.TypedTextField;
-import io.jmix.flowui.component.upload.FileStorageUploadField;
-
+import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
 import io.jmix.flowui.kit.component.button.JmixButton;
 
 import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.view.*;
-//
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 
 import java.io.InputStream;
+import java.net.URLConnection;
 import java.util.List;
 import java.util.Set;
 
@@ -69,15 +67,63 @@ public class MinioView extends StandardView {
     private String currentBucket;
     private String currentPrefix = "";
 
+    @ViewComponent("multiUpload")
+    private Upload multiUpload;
 
-    @ViewComponent
-    private FileStorageUploadField fileField;
 
     @Subscribe
     public void onInit(InitEvent event) {
         loadAllBuckets();
         viewItemFile();
         viewItemObject();
+
+        MultiFileMemoryBuffer buffer = new MultiFileMemoryBuffer();
+        multiUpload.setReceiver(buffer);
+        multiUpload.setDropAllowed(true);  // Cho kéo–thả
+        multiUpload.setMaxFileSize(100 * 1024 * 1024); // 100MB mỗi file
+        multiUpload.setMaxFiles(50);
+
+        // Sự kiện cho TỪNG FILE
+        multiUpload.addSucceededListener(e -> {
+            if (currentBucket == null || currentBucket.isBlank()) {
+                Notification.show("Vui lòng chọn bucket trước khi upload file");
+                return;
+            }
+
+            String fileName = e.getFileName();   // name
+            long size = e.getContentLength();   //size
+            String contentType = e.getMIMEType();  //type
+            if (contentType == null || contentType.isBlank()) {
+                String guess = URLConnection.guessContentTypeFromName(fileName);
+                contentType = (guess != null) ? guess : "application/octet-stream";
+            }
+
+            String objectKey = buildObjectKey(currentPrefix, fileName);
+
+            try (InputStream in = buffer.getInputStream(fileName)) {
+                fileService.uploadFile(currentBucket, objectKey, in, size, contentType);
+                Notification.show("Upload thành công: " + objectKey);
+            } catch (Exception ex) {
+                Notification.show("Lỗi upload " + fileName + ": " + ex.getMessage());
+            }
+        });
+        multiUpload.addAllFinishedListener(e2 -> {
+            try {
+                refreshFiles();
+            } catch (Exception ex) {
+                Notification.show("Refresh lỗi: " + ex.getMessage());
+            }
+            multiUpload.clearFileList();
+            //giải phóng bộ nhớ ram
+            MultiFileMemoryBuffer uploadBuffer = new MultiFileMemoryBuffer();
+            multiUpload.setReceiver(uploadBuffer);
+        });
+
+    }
+
+    private static String buildObjectKey(String prefix, String fileName) {
+        if (prefix == null || prefix.isBlank()) return fileName;
+        return prefix.endsWith("/") ? prefix + fileName : prefix + "/" + fileName;
     }
 
 
@@ -174,71 +220,73 @@ public class MinioView extends StandardView {
             Notification.show("Lỗi không thể xóa" + object.getKey() + " của bucket " + currentBucket);
         }
     }
-@Subscribe(id = "deleteBucketBtn", subject = "clickListener")
-public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
-    try {
-        Set<BucketDto> selectedItems = buckets.getSelectedItems();
-        if (selectedItems == null || selectedItems.isEmpty()) {
-            Notification.show("Vui lòng chọn bucket hoặc folder");
-            return;
-        }
-        BucketDto selected = selectedItems.iterator().next();
 
-        if (TreeNode.BUCKET.equals(selected.getType())) {
-            ConfirmDialog dlg = new ConfirmDialog();
-            dlg.setHeader("Xác nhận");
-            dlg.setText("Xóa BUCKET '" + selected.getBucketName() + "'?\n(Lưu ý: bucket phải rỗng)");
-            dlg.setCancelable(true);
-            dlg.setConfirmText("Xóa");
-            dlg.addConfirmListener(e2 -> {
-                try {
-                    bucketService.removeBucket(selected.getBucketName());
-                    Notification.show("Đã xóa bucket: " + selected.getBucketName());
+    @Subscribe(id = "deleteBucketBtn", subject = "clickListener")
+    public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
+        try {
+            Set<BucketDto> selectedItems = buckets.getSelectedItems();
+            if (selectedItems == null || selectedItems.isEmpty()) {
+                Notification.show("Vui lòng chọn bucket hoặc folder");
+                return;
+            }
+            BucketDto selected = selectedItems.iterator().next();
 
-                    if (selected.getBucketName() != null && selected.getBucketName().equals(currentBucket)) {
-                        updateState(null, "");
-                        filesDc.setItems(List.of());
+            if (TreeNode.BUCKET.equals(selected.getType())) {
+                ConfirmDialog dlg = new ConfirmDialog();
+                dlg.setHeader("Xác nhận");
+                dlg.setText("Xóa BUCKET '" + selected.getBucketName() + "'?\n(Lưu ý: bucket phải rỗng)");
+                dlg.setCancelable(true);
+                dlg.setConfirmText("Xóa");
+                dlg.addConfirmListener(e2 -> {
+                    try {
+                        bucketService.removeBucket(selected.getBucketName());
+                        Notification.show("Đã xóa bucket: " + selected.getBucketName());
+
+                        if (selected.getBucketName() != null && selected.getBucketName().equals(currentBucket)) {
+                            updateState(null, "");
+                            filesDc.setItems(List.of());
+                        }
+                        loadAllBuckets();
+                    } catch (Exception ex) {
+                        toastErr("Không thể xóa bucket (có thể bucket chưa rỗng).", ex);
                     }
-                    loadAllBuckets();
-                } catch (Exception ex) {
-                    toastErr("Không thể xóa bucket (có thể bucket chưa rỗng).", ex);
-                }
-            });
-            dlg.open();
+                });
+                dlg.open();
 
-        } else if (TreeNode.FOLDER.equals(selected.getType())) {
-            final String bucket = selected.getBucketName();
-            String folderPrefix = selected.getPath();
-            if (folderPrefix == null) folderPrefix = "";
-            if (!folderPrefix.isEmpty() && !folderPrefix.endsWith("/")) folderPrefix = folderPrefix + "/";
+            } else if (TreeNode.FOLDER.equals(selected.getType())) {
+                final String bucket = selected.getBucketName();
+                String folderPrefix = selected.getPath();
+                if (folderPrefix == null) folderPrefix = "";
+                if (!folderPrefix.isEmpty() && !folderPrefix.endsWith("/")) folderPrefix = folderPrefix + "/";
 
-            ConfirmDialog dlg = new ConfirmDialog();
-            dlg.setHeader("Xác nhận");
-            dlg.setText("Xóa FOLDER '" + folderPrefix + "' và toàn bộ bên trong?");
-            dlg.setCancelable(true);
-            dlg.setConfirmText("Xóa");
-            final String finalFolderPrefix = folderPrefix;
-            dlg.addConfirmListener(e2 -> {
-                try {
-                    fileService.delete(bucket, finalFolderPrefix);
-                    Notification.show("Đã xóa folder: " + finalFolderPrefix);
+                ConfirmDialog dlg = new ConfirmDialog();
+                dlg.setHeader("Xác nhận");
+                dlg.setText("Xóa FOLDER '" + folderPrefix + "' và toàn bộ bên trong?");
+                dlg.setCancelable(true);
+                dlg.setConfirmText("Xóa");
+                final String finalFolderPrefix = folderPrefix;
+                dlg.addConfirmListener(e2 -> {
+                    try {
+                        fileService.delete(bucket, finalFolderPrefix);
+                        Notification.show("Đã xóa folder: " + finalFolderPrefix);
 
-                    if (bucket != null && bucket.equals(currentBucket)) {
-                        filesDc.setItems(fileService.getAllFromBucket(currentBucket, currentPrefix));
+                        if (bucket != null && bucket.equals(currentBucket)) {
+                            filesDc.setItems(fileService.getAllFromBucket(currentBucket, currentPrefix));
+                        }
+                        loadAllBuckets();
+                    } catch (Exception ex) {
+                        toastErr("Không thể xóa folder", ex);
                     }
-                    loadAllBuckets();
-                } catch (Exception ex) {
-                    toastErr("Không thể xóa folder", ex);
-                }
-            });
-            dlg.open();
-        } else {
-            Notification.show("Vui lòng chọn Bucket hoặc Folder.");
+                });
+                dlg.open();
+            } else {
+                Notification.show("Vui lòng chọn Bucket hoặc Folder.");
+            }
+        } catch (Exception e) {
+            toastErr("Không thể xóa", e);
         }
-    } catch (Exception e) {
-        toastErr("Không thể xóa", e);
     }
-}
+
     @Subscribe("backBtn")
     public void onBackBtnClick(ClickEvent<JmixButton> event) {
         if (currentBucket == null || currentBucket.isBlank()) {
@@ -263,6 +311,7 @@ public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
             toastErr("Lỗi quay lại", ex);
         }
     }
+
     // Double click: mở object con bên phải
     @Subscribe("objects")
     public void onObjectsItemDoubleClick(final ItemDoubleClickEvent<ObjectDto> event) {
@@ -378,7 +427,7 @@ public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
         return layout;
     }
 
-    @Subscribe
+
     private String getSelectedBucketName() {
         BucketDto selected = buckets == null ? null : buckets.getSingleSelectedItem();
         if (selected == null) {
@@ -414,34 +463,4 @@ public void onDeleteBucketBtnClick(final ClickEvent<JmixButton> event) {
         Notification.show(msg + ": " + (e.getMessage() == null ? e.toString() : e.getMessage()));
     }
 
-    @Subscribe("multiUpload")
-    public void uploadFile(final SucceededEvent event) {
-        try {
-            if (currentBucket == null || currentBucket.isBlank()) {
-                Notification.show("Vui lòng chọn bucket trước khi upload file");
-                return;
-            }
-
-            String fileName = event.getFileName();
-            long fileSize = event.getContentLength();
-
-
-            Upload upload = event.getUpload();
-            String contentType = upload.getAcceptedFileTypes().isEmpty() ?
-                "application/octet-stream" : upload.getAcceptedFileTypes().iterator().next();
-
-            String objectKey = currentPrefix + fileName;
-
-            MemoryBuffer receiver =(MemoryBuffer) upload.getReceiver();
-            InputStream inputStream = receiver.getInputStream();
-
-
-            String uploadedKey = fileService.uploadFile(currentBucket, objectKey, inputStream, fileSize, contentType);
-            Notification.show("Upload thành công: " + fileName);
-            refreshFiles();
-
-        } catch (Exception e) {
-            toastErr("Upload file thất bại", e);
-        }
-    }
 }

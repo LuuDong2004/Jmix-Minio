@@ -148,7 +148,7 @@ public class FileServiceImpl implements IFileService {
             );
             return objectKey;
         } catch (Exception e) {
-            throw new MinioException("Tải file: " + objectKey + " lên bucket " + bucket, e);
+            throw new MinioException("(Service)Tải file: " + objectKey + " lên bucket " + bucket, e);
         }
     }
 
