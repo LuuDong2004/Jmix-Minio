@@ -5,6 +5,7 @@ import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
 
 import com.company.minio2.entity.File;
+import com.company.minio2.entity.Permission;
 import com.company.minio2.entity.PermissionType;
 import com.company.minio2.entity.User;
 import com.company.minio2.service.minio.IBucketService;
@@ -67,6 +68,9 @@ public class MinioView extends StandardView {
 
     @ViewComponent
     private DataGrid<ObjectDto> objects;
+
+    @ViewComponent
+    private DataGrid<Permission> permissionsDataGrid;
 
     @ViewComponent
     private TypedTextField<String> prefixField;
@@ -459,8 +463,6 @@ public class MinioView extends StandardView {
         List<User> userList = dataManager.load(User.class).all().list();
         DialogWindow<AssignPermissionDialog> window = dialogWindows.view(this, AssignPermissionDialog.class).build();
         window.getView().setFilePath(selected.getKey());
-        window.getView().setUserName(userList);
-        System.out.println("Selected path = " + selected.getKey());
         window.open();
     }
 

@@ -17,6 +17,9 @@ public class Permission {
     @Id
     private UUID id;
 
+    @Column(name = "PERMISSION_TYPE")
+    private Integer permissionType;
+
     @JoinColumn(name = "USER_ID")
     @ManyToOne(fetch = FetchType.LAZY)
     private User user;
@@ -24,20 +27,37 @@ public class Permission {
     @Column(name = "FILE_PATH")
     private String filePath;
 
-    @Column(name = "FOLDER_PATH")
-    private String folderPath;
+    @Column(name = "PERMISSION_MASK")
+    private Integer permissionMask;
 
-    @Column(name = "PERMISSION")
-    private Integer permission;
+    @Column(name = "ROLE_CODE")
+    private String roleCode;
 
+    @Transient
+    private Boolean allow;
 
-
-    public String getFolderPath() {
-        return folderPath;
+    public String getRoleCode() {
+        return roleCode;
     }
 
-    public void setFolderPath(String folderPath) {
-        this.folderPath = folderPath;
+    public void setRoleCode(String roleCode) {
+        this.roleCode = roleCode;
+    }
+
+    public void setPermissionType(PermissionType permissionType) {
+        this.permissionType = permissionType == null ? null : permissionType.getId();
+    }
+
+    public PermissionType getPermissionType() {
+        return permissionType == null ? null : PermissionType.fromId(permissionType);
+    }
+
+    public Boolean getAllow() {
+        return allow;
+    }
+
+    public void setAllow(Boolean allow) {
+        this.allow = allow;
     }
 
     public String getFilePath() {
@@ -48,12 +68,12 @@ public class Permission {
         this.filePath = filePath;
     }
 
-    public Integer getPermission() {
-        return permission;
+    public Integer getPermissionMask() {
+        return permissionMask;
     }
 
-    public void setPermission(Integer permission) {
-        this.permission = permission;
+    public void setPermissionMask(Integer permission) {
+        this.permissionMask = permission;
     }
 
     public User getUser() {
@@ -71,5 +91,6 @@ public class Permission {
     public void setId(UUID id) {
         this.id = id;
     }
+
 
 }

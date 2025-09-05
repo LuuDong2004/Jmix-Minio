@@ -1,6 +1,8 @@
 package com.company.minio2.entity;
 
-public enum PermissionType {
+import io.jmix.core.metamodel.datatype.EnumClass;
+
+public enum PermissionType implements EnumClass<Integer> {
     READ(1),
     CREATE(2),
     MODIFY(4),
@@ -23,5 +25,37 @@ public enum PermissionType {
         }
         // Kiểm tra bit tương ứng
         return (mask & type.value) == type.value;
+    }
+
+    @Override
+    public Integer getId() {
+        return value;
+    }
+
+    public static PermissionType fromId(Integer id) {
+        if (id == null)
+            return null;
+        for (PermissionType type : PermissionType.values()) {
+            if (type.getId().equals(id)) {
+                return type;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public String toString() {
+        switch (this) {
+            case READ:
+                return "READ";
+            case CREATE:
+                return "CREATE";
+            case MODIFY:
+                return "MODIFY";
+            case FULL:
+                return "FULL ACCESS";
+            default:
+                return super.toString();
+        }
     }
 }
