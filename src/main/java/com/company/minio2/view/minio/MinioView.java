@@ -19,6 +19,12 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.router.Route;
+import io.jmix.flowui.Dialogs;
+import io.jmix.flowui.Notifications;
+import io.jmix.flowui.action.inputdialog.InputDialogAction;
+import io.jmix.flowui.app.inputdialog.DialogActions;
+import io.jmix.flowui.app.inputdialog.DialogOutcome;
+import io.jmix.flowui.app.inputdialog.InputParameter;
 import io.jmix.flowui.component.grid.DataGrid;
 import io.jmix.flowui.component.grid.TreeDataGrid;
 import io.jmix.flowui.component.textfield.TypedTextField;
@@ -28,6 +34,7 @@ import io.jmix.flowui.kit.component.button.JmixButton;
 import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.view.*;
 
+import io.minio.errors.MinioException;
 import org.springframework.beans.factory.annotation.Autowired;
 
 
@@ -70,6 +77,11 @@ public class MinioView extends StandardView {
     @ViewComponent("multiUpload")
     private Upload multiUpload;
 
+    private MultiFileMemoryBuffer uploadBuffer;
+    @Autowired
+    private Dialogs dialogs;
+    @Autowired
+    private Notifications notifications;
 
     @Subscribe
     public void onInit(InitEvent event) {
@@ -77,48 +89,36 @@ public class MinioView extends StandardView {
         viewItemFile();
         viewItemObject();
 
-        MultiFileMemoryBuffer buffer = new MultiFileMemoryBuffer();
-        multiUpload.setReceiver(buffer);
-        multiUpload.setDropAllowed(true);  // Cho kéo–thả
+        uploadBuffer = new MultiFileMemoryBuffer();
+        multiUpload.getElement().setProperty("directory", true);
+        multiUpload.setDropAllowed(true);
+        multiUpload.setReceiver(uploadBuffer);
         multiUpload.setMaxFileSize(100 * 1024 * 1024); // 100MB mỗi file
-        multiUpload.setMaxFiles(50);
+        multiUpload.setMaxFiles(Integer.MAX_VALUE);
 
-        // Sự kiện cho TỪNG FILE
+
         multiUpload.addSucceededListener(e -> {
-            if (currentBucket == null || currentBucket.isBlank()) {
-                Notification.show("Vui lòng chọn bucket trước khi upload file");
-                return;
-            }
-
-            String fileName = e.getFileName();   // name
-            long size = e.getContentLength();   //size
-            String contentType = e.getMIMEType();  //type
-            if (contentType == null || contentType.isBlank()) {
-                String guess = URLConnection.guessContentTypeFromName(fileName);
-                contentType = (guess != null) ? guess : "application/octet-stream";
-            }
-
-            String objectKey = buildObjectKey(currentPrefix, fileName);
-
-            try (InputStream in = buffer.getInputStream(fileName)) {
+            try (InputStream in = uploadBuffer.getInputStream(e.getFileName())) {
+                String fileName = e.getFileName();
+                long size = e.getContentLength();
+                String contentType = e.getMIMEType();
+                if (contentType == null || contentType.isBlank()) {
+                    String guess = URLConnection.guessContentTypeFromName(fileName);
+                    contentType = (guess != null) ? guess : "application/octet-stream";
+                }
+                String objectKey = buildObjectKey(currentPrefix, fileName);
                 fileService.uploadFile(currentBucket, objectKey, in, size, contentType);
                 Notification.show("Upload thành công: " + objectKey);
             } catch (Exception ex) {
-                Notification.show("Lỗi upload " + fileName + ": " + ex.getMessage());
+                Notification.show("Lỗi upload " + e.getFileName() + ": " + ex.getMessage());
             }
         });
-        multiUpload.addAllFinishedListener(e2 -> {
-            try {
-                refreshFiles();
-            } catch (Exception ex) {
-                Notification.show("Refresh lỗi: " + ex.getMessage());
-            }
+        multiUpload.addAllFinishedListener(e -> {
+            refreshFiles();
             multiUpload.clearFileList();
-            //giải phóng bộ nhớ ram
-            MultiFileMemoryBuffer uploadBuffer = new MultiFileMemoryBuffer();
+            uploadBuffer = new MultiFileMemoryBuffer();
             multiUpload.setReceiver(uploadBuffer);
         });
-
     }
 
     private static String buildObjectKey(String prefix, String fileName) {
@@ -130,8 +130,6 @@ public class MinioView extends StandardView {
     private void loadAllBuckets() {
         try {
             List<BucketDto> list = bucketService.listBucketFolderTree();
-
-            // auto select bucket đầu tiên (nếu có)
             list.stream()
                     .filter(b -> TreeNode.BUCKET.equals(b.getType()))
                     .findFirst()
@@ -142,8 +140,6 @@ public class MinioView extends StandardView {
                         //selectTreeNode(currentBucket, currentPrefix);
                     });
             bucketsDc.setItems(list);
-
-
             buckets.addSelectionListener(e -> loadObjectFromBucket());
         } catch (Exception e) {
             toastErr("Load buckets failed", e);
@@ -182,13 +178,39 @@ public class MinioView extends StandardView {
         }
     }
 
+    private void refreshBuckets() {
+        try {
+            List<BucketDto> list = bucketService.listBucketFolderTree();
+            bucketsDc.setItems(list);
+        } catch (Exception e) {
+            toastErr("Load buckets failed", e);
+        }
 
-    // ===== ACTIONS (Buttons) =====
+    }
     @Subscribe(id = "createBucketBtn", subject = "clickListener")
     public void onCreateBucketBtnClick(final ClickEvent<JmixButton> event) {
-        Notification.show("Chức năng tạo bucket chưa được triển khai");
+        dialogs.createInputDialog(this)
+                .withHeader("Nhập tên bucket")
+                .withParameter(InputParameter.stringParameter("name").withLabel("Tên bucket").withRequired(true))
+                .withActions(DialogActions.OK_CANCEL)
+                .withCloseListener(closeEvent -> {
+                    if (closeEvent.closedWith(DialogOutcome.OK)) {
+                        String name = closeEvent.getValue("name");
+                        if(name.isBlank()){
+                            notifications.show("Tên bucket không được để trống!");
+                            return;
+                        }
+                        try {
+                            bucketService.createBucket(name);
+                            notifications.show("Tạo bucket "+ name + " thành công!");
+                            refreshBuckets();
+                        } catch (Exception e) {
+                            notifications.show("Lỗi không thể tạo bucket" + name);
+                        }
+                    }
+                })
+                .open();
     }
-
     @Subscribe(id = "searchBtn", subject = "clickListener")
     public void onSearchBtnClick(final ClickEvent<JmixButton> event) {
         updateState(currentBucket, prefixField != null ? prefixField.getValue() : currentPrefix);
@@ -200,6 +222,7 @@ public class MinioView extends StandardView {
         Notification.show("Chức năng tải xuống chưa được triển khai");
     }
 
+    // xóa file
     @Subscribe(id = "deleteBtn", subject = "clickListener")
     public void onDeleteFileBtnClick(ClickEvent<JmixButton> event) {
         ObjectDto object = objects.getSingleSelectedItem();
@@ -215,7 +238,6 @@ public class MinioView extends StandardView {
             fileService.delete(currentBucket, object.getKey());
             Notification.show("xóa thành công!" + object.getKey());
             refreshFiles();
-            loadAllBuckets();
         } catch (Exception e) {
             Notification.show("Lỗi không thể xóa" + object.getKey() + " của bucket " + currentBucket);
         }

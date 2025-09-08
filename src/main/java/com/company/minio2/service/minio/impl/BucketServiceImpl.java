@@ -102,4 +102,19 @@ public class BucketServiceImpl implements IBucketService {
             throw new MinioException("Không thể xóa bucket này!" , e);
         }
     }
+    @Override
+    public void createBucket(String bucketName) {
+            try {
+                boolean exists = mc.bucketExists(
+                       BucketExistsArgs.builder().bucket(bucketName).build()
+                );
+                if (!exists) {
+                    mc.makeBucket(MakeBucketArgs.builder().bucket(bucketName).build());
+                } else {
+                    throw new RuntimeException("Bucket '" + bucketName + "' đã tồn tại");
+                }
+            } catch (Exception e) {
+                throw new MinioException("Lỗi service : Không thể tạo mới bucket", e);
+            }
+        }
 }

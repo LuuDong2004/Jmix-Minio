@@ -20,7 +20,6 @@
                             classNames="btn-delete"
                             themeNames="error"/>
                 </hbox>
-
                 <treeDataGrid id="buckets"
                               dataContainer="bucketsDc"
                               hierarchyProperty="parent"
@@ -49,7 +48,6 @@
                         <column property="lastModified" header="Date"/>
                     </columns>
                 </dataGrid>
-<!--                <label id="statusLabel"/>-->
             </vbox>
         </split>
     </layout>

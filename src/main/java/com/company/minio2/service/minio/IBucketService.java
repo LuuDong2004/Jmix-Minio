@@ -8,4 +8,5 @@ public interface IBucketService {
     List<BucketDto> getAllBuckets();
     List<BucketDto> listBucketFolderTree();
     void removeBucket(String bucketName);
+    void createBucket(String bucketName);
 }
