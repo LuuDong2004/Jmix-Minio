@@ -10,6 +10,7 @@ import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
 import org.springframework.stereotype.Service;
 
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -152,6 +153,22 @@ public class FileServiceImpl implements IFileService {
         }
     }
 
+    @Override
+    public void createNewObject(String bucket,String prefix, String objectKey) {
+        String normPrefix = normalizePrefix(objectKey);
+        String folderName  = (prefix + normPrefix + "/");
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(new byte[0])) {
+            PutObjectArgs args = PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(folderName)
+                    .stream(bais, 0, -1)
+                    .contentType("application/x-directory")
+                    .build();
+            minioClient.putObject(args);
+        } catch (Exception e) {
+            throw new MinioException("Không thể tạo folder '" + folderName + "' trong bucket " + bucket, e);
+        }
+    }
     @Override
     public String parentPrefix(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";

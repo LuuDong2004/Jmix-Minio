@@ -13,4 +13,5 @@ public interface IFileService {
     String parentPrefix(String prefix);
     void delete(String bucket, String objectKey);
     String uploadFile(String bucket, String objectKey, InputStream stream, long size, String contentType);
+    void createNewObject(String bucket,String prefix, String objectKey);
 }

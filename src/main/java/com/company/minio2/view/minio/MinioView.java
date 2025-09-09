@@ -3,11 +3,13 @@ package com.company.minio2.view.minio;
 import com.company.minio2.dto.BucketDto;
 import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
+import com.company.minio2.exception.MinioException;
 import com.company.minio2.service.minio.IBucketService;
 import com.company.minio2.service.minio.IFileService;
 import com.company.minio2.view.main.MainView;
 
 import com.vaadin.flow.component.ClickEvent;
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.ItemClickEvent;
 import com.vaadin.flow.component.grid.ItemDoubleClickEvent;
@@ -21,7 +23,6 @@ import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.router.Route;
 import io.jmix.flowui.Dialogs;
 import io.jmix.flowui.Notifications;
-import io.jmix.flowui.action.inputdialog.InputDialogAction;
 import io.jmix.flowui.app.inputdialog.DialogActions;
 import io.jmix.flowui.app.inputdialog.DialogOutcome;
 import io.jmix.flowui.app.inputdialog.InputParameter;
@@ -34,14 +35,17 @@ import io.jmix.flowui.kit.component.button.JmixButton;
 import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.view.*;
 
-import io.minio.errors.MinioException;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 
 import java.io.InputStream;
 import java.net.URLConnection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
+
+import static io.jmix.flowui.app.inputdialog.InputParameter.stringParameter;
 
 @Route(value = "minio-view", layout = MainView.class)
 @ViewController(id = "MinioView")
@@ -74,10 +78,10 @@ public class MinioView extends StandardView {
     private String currentBucket;
     private String currentPrefix = "";
 
-    @ViewComponent("multiUpload")
-    private Upload multiUpload;
+    @ViewComponent("fileUpload")
+    private Upload fileUpload;
 
-    private MultiFileMemoryBuffer uploadBuffer;
+    private MultiFileMemoryBuffer fileBuffer;
     @Autowired
     private Dialogs dialogs;
     @Autowired
@@ -89,16 +93,15 @@ public class MinioView extends StandardView {
         viewItemFile();
         viewItemObject();
 
-        uploadBuffer = new MultiFileMemoryBuffer();
-        multiUpload.getElement().setProperty("directory", true);
-        multiUpload.setDropAllowed(true);
-        multiUpload.setReceiver(uploadBuffer);
-        multiUpload.setMaxFileSize(100 * 1024 * 1024); // 100MB mỗi file
-        multiUpload.setMaxFiles(Integer.MAX_VALUE);
-
-
-        multiUpload.addSucceededListener(e -> {
-            try (InputStream in = uploadBuffer.getInputStream(e.getFileName())) {
+        fileBuffer = new MultiFileMemoryBuffer();
+        fileUpload.getElement().setProperty("directory", true);
+        fileUpload.setDropAllowed(true);
+        fileUpload.setReceiver(fileBuffer);
+        fileUpload.setMaxFileSize(100 * 1024 * 1024); // 100MB mỗi file
+        fileUpload.setMaxFiles(Integer.MAX_VALUE);
+        fileUpload.setUploadButton(new Button("Upload File"));
+        fileUpload.addSucceededListener(e -> {
+            try (InputStream in = fileBuffer.getInputStream(e.getFileName())) {
                 String fileName = e.getFileName();
                 long size = e.getContentLength();
                 String contentType = e.getMIMEType();
@@ -113,11 +116,11 @@ public class MinioView extends StandardView {
                 Notification.show("Lỗi upload " + e.getFileName() + ": " + ex.getMessage());
             }
         });
-        multiUpload.addAllFinishedListener(e -> {
+        fileUpload.addAllFinishedListener(e -> {
             refreshFiles();
-            multiUpload.clearFileList();
-            uploadBuffer = new MultiFileMemoryBuffer();
-            multiUpload.setReceiver(uploadBuffer);
+            fileUpload.clearFileList();
+            fileBuffer = new MultiFileMemoryBuffer();
+            fileUpload.setReceiver(fileBuffer);
         });
     }
 
@@ -125,7 +128,6 @@ public class MinioView extends StandardView {
         if (prefix == null || prefix.isBlank()) return fileName;
         return prefix.endsWith("/") ? prefix + fileName : prefix + "/" + fileName;
     }
-
 
     private void loadAllBuckets() {
         try {
@@ -187,22 +189,24 @@ public class MinioView extends StandardView {
         }
 
     }
+
+    //new bucket
     @Subscribe(id = "createBucketBtn", subject = "clickListener")
     public void onCreateBucketBtnClick(final ClickEvent<JmixButton> event) {
         dialogs.createInputDialog(this)
                 .withHeader("Nhập tên bucket")
-                .withParameter(InputParameter.stringParameter("name").withLabel("Tên bucket").withRequired(true))
+                .withParameter(stringParameter("name").withLabel("Tên bucket").withRequired(true).withDefaultValue("new-bucket"))
                 .withActions(DialogActions.OK_CANCEL)
                 .withCloseListener(closeEvent -> {
                     if (closeEvent.closedWith(DialogOutcome.OK)) {
                         String name = closeEvent.getValue("name");
-                        if(name.isBlank()){
+                        if (name.isBlank()) {
                             notifications.show("Tên bucket không được để trống!");
                             return;
                         }
                         try {
-                            bucketService.createBucket(name);
-                            notifications.show("Tạo bucket "+ name + " thành công!");
+                            bucketService.createBucket(name.toLowerCase(Locale.ROOT));
+                            notifications.show("Tạo bucket " + name + " thành công!");
                             refreshBuckets();
                         } catch (Exception e) {
                             notifications.show("Lỗi không thể tạo bucket" + name);
@@ -211,6 +215,7 @@ public class MinioView extends StandardView {
                 })
                 .open();
     }
+
     @Subscribe(id = "searchBtn", subject = "clickListener")
     public void onSearchBtnClick(final ClickEvent<JmixButton> event) {
         updateState(currentBucket, prefixField != null ? prefixField.getValue() : currentPrefix);
@@ -485,4 +490,36 @@ public class MinioView extends StandardView {
         Notification.show(msg + ": " + (e.getMessage() == null ? e.toString() : e.getMessage()));
     }
 
+
+    //new folder
+    @Subscribe(id = "newBtn", subject = "clickListener")
+    public void onNewBtnClick(final ClickEvent<JmixButton> event) {
+        if (currentBucket == null || currentBucket.isBlank()) {
+            notifications.show("Vui lòng chọn bucket trước!");
+            return;
+        }
+        dialogs.createInputDialog(this)
+                .withHeader("Tạo mới folder")
+                .withParameters(
+                        stringParameter("name")
+                                .withLabel("Tên Folder ")
+                                .withRequired(true)
+                                .withDefaultValue("New Folder")
+                )
+                .withActions(DialogActions.OK_CANCEL)
+                .withCloseListener(closeEvent -> {
+                    if (closeEvent.closedWith(DialogOutcome.OK)) {
+                        try {
+                            String objectKey = closeEvent.getValue("name");
+                            fileService.createNewObject(currentBucket, currentPrefix, objectKey);
+                            refreshBuckets();
+                            refreshFiles();
+                            notifications.show("Tạo mới folder thành công");
+                        } catch (MinioException e) {
+                            notifications.show("Không thể tạo mới folder" + e);
+                        }
+                    }
+                })
+                .open();
+    }
 }

@@ -31,8 +31,9 @@
             <vbox width="100%" height="100%">
                 <hbox spacing="true" alignItems="CENTER">
                     <textField id="prefixField" placeholder="Search file.."/>
-                    <upload id="multiUpload"/>
                     <button id="searchBtn" text="Search" classNames="btn-search"/>
+                    <upload id="fileUpload"/>
+                    <button id="newBtn" text="New" classNames="btn-new"/>
                     <button id="downloadBtn" text="Download" classNames="btn-download"/>
                     <button id="deleteBtn" text="Delete" classNames="btn-delete" themeNames="error"/>
                     <button id="backBtn" text="Back"/>
