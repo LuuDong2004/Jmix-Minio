@@ -32,6 +32,7 @@ import io.jmix.flowui.component.textfield.TypedTextField;
 import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
 import io.jmix.flowui.kit.component.button.JmixButton;
 
+
 import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.view.*;
 
@@ -128,7 +129,6 @@ public class MinioView extends StandardView {
         if (prefix == null || prefix.isBlank()) return fileName;
         return prefix.endsWith("/") ? prefix + fileName : prefix + "/" + fileName;
     }
-
     private void loadAllBuckets() {
         try {
             List<BucketDto> list = bucketService.listBucketFolderTree();
@@ -139,7 +139,6 @@ public class MinioView extends StandardView {
                         buckets.select(first);
                         updateState(first.getBucketName(), "");
                         refreshFiles();
-                        //selectTreeNode(currentBucket, currentPrefix);
                     });
             bucketsDc.setItems(list);
             buckets.addSelectionListener(e -> loadObjectFromBucket());
@@ -189,7 +188,6 @@ public class MinioView extends StandardView {
         }
 
     }
-
     //new bucket
     @Subscribe(id = "createBucketBtn", subject = "clickListener")
     public void onCreateBucketBtnClick(final ClickEvent<JmixButton> event) {
@@ -215,13 +213,26 @@ public class MinioView extends StandardView {
                 })
                 .open();
     }
-
     @Subscribe(id = "searchBtn", subject = "clickListener")
     public void onSearchBtnClick(final ClickEvent<JmixButton> event) {
+        if (currentBucket == null || currentBucket.isBlank()) {
+            Notification.show("Chưa chọn bucket");
+            return;
+        }
+        String prefix  = prefixField != null ? prefixField.getValue() : null;
+
+        String nameFragment = (prefixField!= null) ? prefixField.getValue() : "";
+        try {
+            List<ObjectDto> results = fileService.search(currentBucket, prefix, nameFragment);
+            filesDc.setItems(results);
+            updateState(currentBucket, prefix);
+            Notification.show("Tìm thấy " + results.size() + " object");
+        } catch (Exception e) {
+            toastErr("Tìm kiếm lỗi", e);
+        }
         updateState(currentBucket, prefixField != null ? prefixField.getValue() : currentPrefix);
         refreshFiles();
     }
-
     @Subscribe(id = "downloadBtn", subject = "clickListener")
     public void onDownloadBtnClick(final ClickEvent<JmixButton> event) {
         Notification.show("Chức năng tải xuống chưa được triển khai");

@@ -188,4 +188,50 @@ public class FileServiceImpl implements IFileService {
         String name = (idx >= 0) ? rest.substring(idx + 1) : rest;
         return name.trim();
     }
+
+    @Override
+    public List<ObjectDto> search(String bucket, String prefix, String nameFragment) {
+        String perfix = normalizePrefix(prefix);
+        String name = (nameFragment == null) ? "" : nameFragment.trim().toLowerCase();
+
+        try {
+            Iterable<Result<Item>> items = minioClient.listObjects(
+                    ListObjectsArgs.builder()
+                            .bucket(bucket)
+                            .prefix(perfix)
+                            .recursive(true)
+                            .build()
+            );
+
+            List<ObjectDto> out = new ArrayList<>();
+            for (Result<Item> r : items) {
+                Item it = r.get();
+                String key = it.objectName();
+                if (key == null || key.isBlank()) continue;
+
+                String displayName = extractDisplayName(perfix, key);
+
+                boolean match = name.isEmpty()
+                        || key.toLowerCase().contains(name)
+                        || displayName.toLowerCase().contains(name);
+
+                if (match) {
+                    ObjectDto dto = new ObjectDto();
+                    dto.setKey(key);
+                    dto.setName(displayName);
+                    dto.setType(it.isDir() ? TreeNode.FOLDER : TreeNode.FILE);
+                    dto.setSize(it.isDir() ? null : it.size());
+                    dto.setLastModified(
+                            (it.isDir() || it.lastModified() == null)
+                                    ? null
+                                    : it.lastModified().toLocalDateTime()
+                    );
+                    out.add(dto);
+                }
+            }
+            return out;
+        } catch (Exception e) {
+            throw new MinioException("Search thất bại (bucket=" + bucket + ", prefix=" + perfix + ")", e);
+        }
+    }
 }
