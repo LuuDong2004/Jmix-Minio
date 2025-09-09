@@ -16,5 +16,5 @@ public interface IFileService {
     String uploadFile(String bucket, String objectKey, InputStream stream, long size, String contentType);
     void createNewObject(String bucket,String prefix, String objectKey);
     List<ObjectDto> search(String bucket, String prefix, String nameFragment);
-    DownloadDTO download(String bucket, String objectKey, Long offset, Long length);
+    String download(String bucket, String objectKey, int expirySeconds);
 }

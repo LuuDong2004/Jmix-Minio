@@ -7,6 +7,7 @@ import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
 import com.company.minio2.service.minio.IFileService;
 import io.minio.*;
+import io.minio.http.Method;
 import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
 import jakarta.validation.constraints.Min;
@@ -176,6 +177,7 @@ public class FileServiceImpl implements IFileService {
         }
     }
 
+
     @Override
     public String parentPrefix(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";
@@ -189,7 +191,6 @@ public class FileServiceImpl implements IFileService {
         if (prefix == null || prefix.isBlank()) return "";
         return prefix.endsWith("/") ? prefix : (prefix + "/");
     }
-
     private static String extractDisplayName(String prefix, String key) {
         String rest = key.substring(prefix == null ? 0 : prefix.length());
         if (rest.endsWith("/")) rest = rest.substring(0, rest.length() - 1); // bỏ "/" nếu là folder
@@ -245,32 +246,20 @@ public class FileServiceImpl implements IFileService {
     }
 
     @Override
-    public DownloadDTO download(String bucket, String objectKey, Long offset, Long length) {
+    public String download(String bucket, String objectKey, int expirySeconds) {
         try {
-            StatObjectResponse stat = minioClient.statObject(
-                    StatObjectArgs.builder().bucket(bucket).object(objectKey).build()
-            );
-            String content = (stat.contentType() != null && !stat.contentType().isBlank())
-                    ? stat.contentType() : "application/octet-stream";
-            Long size = stat.size();
-            String name = normalizePrefix(objectKey);
-            Supplier<InputStream> supplier = () -> {
-                try {
-                    GetObjectArgs.Builder b = GetObjectArgs.builder()
+            return minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .method(Method.GET)
                             .bucket(bucket)
-                            .object(objectKey);
-                    if (offset != null && offset >= 0) {
-                        b.offset(offset);
-                        if (length != null && length > 0) b.length(length);
-                    }
-                    return minioClient.getObject(b.build());
-                } catch (Exception e) {
-                    throw new MinioException("Không thể mở stream '" + objectKey + "'", e);
-                }
-            };
-            return new DownloadDTO(name, content, size, supplier);
+                            .object(objectKey)
+                            .expiry(expirySeconds > 0 ? expirySeconds : properties.presignExpirySeconds())
+                            .build()
+            );
         } catch (Exception e) {
-            throw new MinioException("Không thể chuẩn bị download '" + objectKey + "'", e);
+            throw new MinioException("Presigned GET failed: " + objectKey + " in bucket=" + bucket, e);
         }
     }
+
+
 }

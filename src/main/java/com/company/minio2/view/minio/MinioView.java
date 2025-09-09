@@ -14,6 +14,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.ItemClickEvent;
 import com.vaadin.flow.component.grid.ItemDoubleClickEvent;
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -22,6 +23,7 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.StreamResource;
 import io.jmix.flowui.Dialogs;
 import io.jmix.flowui.Notifications;
 import io.jmix.flowui.app.inputdialog.DialogActions;
@@ -38,6 +40,7 @@ import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.view.*;
 
 
+import org.aspectj.weaver.ast.Var;
 import org.springframework.beans.factory.annotation.Autowired;
 
 
@@ -130,6 +133,7 @@ public class MinioView extends StandardView {
         if (prefix == null || prefix.isBlank()) return fileName;
         return prefix.endsWith("/") ? prefix + fileName : prefix + "/" + fileName;
     }
+
     private void loadAllBuckets() {
         try {
             List<BucketDto> list = bucketService.listBucketFolderTree();
@@ -189,6 +193,7 @@ public class MinioView extends StandardView {
         }
 
     }
+
     //new bucket
     @Subscribe(id = "createBucketBtn", subject = "clickListener")
     public void onCreateBucketBtnClick(final ClickEvent<JmixButton> event) {
@@ -214,15 +219,18 @@ public class MinioView extends StandardView {
                 })
                 .open();
     }
+
+
     @Subscribe(id = "searchBtn", subject = "clickListener")
     public void onSearchBtnClick(final ClickEvent<JmixButton> event) {
         if (currentBucket == null || currentBucket.isBlank()) {
             Notification.show("Chưa chọn bucket");
             return;
         }
-        String prefix  = prefixField != null ? prefixField.getValue() : null;
+        String prefix = prefixField != null ? prefixField.getValue() : null;
+        String nameFragment = (prefixField != null) ? prefixField.getValue() : "";
 
-        String nameFragment = (prefixField!= null) ? prefixField.getValue() : "";
+
         try {
             List<ObjectDto> results = fileService.search(currentBucket, prefix, nameFragment);
             filesDc.setItems(results);
@@ -231,50 +239,32 @@ public class MinioView extends StandardView {
         } catch (Exception e) {
             toastErr("Tìm kiếm lỗi", e);
         }
+
         updateState(currentBucket, prefixField != null ? prefixField.getValue() : currentPrefix);
         refreshFiles();
     }
 
+    //download file
     @Subscribe(id = "downloadBtn", subject = "clickListener")
     public void onDownloadBtnClick(final ClickEvent<JmixButton> event) {
-       ObjectDto selected = objects.getSingleSelectedItem();
-       if (selected == null || selected.getKey() == null || selected.getKey().isBlank()) {
-           Notification.show("Chưa chọn file");
-           return;
-       }
+        ObjectDto selected = objects.getSingleSelectedItem();
+        if (selected == null || selected.getKey() == null || selected.getKey().isBlank()) {
+            Notification.show("Chưa chọn file");
+            return;
+        }
         if (currentBucket == null || currentBucket.isBlank()) {
             Notification.show("Chưa chọn bucket");
             return;
         }
+
         try {
-            DownloadDTO data = fileService.download(currentBucket, selected.getKey(), null, null);
-
-            // Tạo StreamResource để tải qua app (đi qua phân quyền/phiên đăng nhập của bạn)
-            com.vaadin.flow.server.StreamResource resource = new com.vaadin.flow.server.StreamResource(
-                    data.getFileName(),
-                    () -> data.getStreamSupplier().get()
-            );
-            resource.setContentType(data.getContentType());
-
-            // Ép trình duyệt tải xuống (Content-Disposition: attachment)
-            com.vaadin.flow.component.html.Anchor a = new com.vaadin.flow.component.html.Anchor(resource, "");
-            a.getElement().setAttribute("download", true);
-            a.getStyle().set("display", "none");
-
-            // Gắn tạm vào DOM, click, rồi gỡ ra
-            getContent().getElement().appendChild(a.getElement());
-            a.getElement().callJsFunction("click");
-            a.getElement().removeFromParent();
-
-            Notification.show("Đang tải: " + data.getFileName());
-        } catch (Exception ex) {
-            Notification.show("Tải xuống thất bại");
+              String url = fileService.download(currentBucket,selected.getKey() , 300);
+             getUI().ifPresent(ui -> ui.getPage().open(url));
+             Notification.show("Downloading '" + selected.getKey() + "'");
+        } catch (Exception e) {
+            Notification.show("Tải xuống thất bại: " + e.getMessage());
         }
-
-        Notification.show("Download file thành công!");
     }
-
-
     // xóa file
     @Subscribe(id = "deleteBtn", subject = "clickListener")
     public void onDeleteFileBtnClick(ClickEvent<JmixButton> event) {
@@ -502,17 +492,6 @@ public class MinioView extends StandardView {
         return layout;
     }
 
-//    private String getSelectedBucketName() {
-//        BucketDto selected = buckets == null ? null : buckets.getSingleSelectedItem();
-//        if (selected == null) {
-//            updateState(null, "");
-//            return null;
-//        }
-//        BucketDto root = rootOf(selected);
-//        updateState(root != null ? root.getBucketName() : null,
-//                TreeNode.FOLDER.equals(selected.getType()) ? selected.getPath() : "");
-//        return currentBucket;
-//    }
 
     private static String norm(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";
@@ -569,9 +548,10 @@ public class MinioView extends StandardView {
                 })
                 .open();
     }
+
     @Subscribe("objects")
     public void onObjectsItemClick(final ItemClickEvent<ObjectDto> event) {
 
-        notifications.show("click oke");
+
     }
 }
