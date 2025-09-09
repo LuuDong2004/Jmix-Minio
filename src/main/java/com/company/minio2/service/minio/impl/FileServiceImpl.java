@@ -1,6 +1,7 @@
 package com.company.minio2.service.minio.impl;
 
 import com.company.minio2.config.MinioStorageProperties;
+import com.company.minio2.dto.DownloadDTO;
 import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
@@ -8,12 +9,14 @@ import com.company.minio2.service.minio.IFileService;
 import io.minio.*;
 import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
+import jakarta.validation.constraints.Min;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 
 @Service
@@ -57,6 +60,7 @@ public class FileServiceImpl implements IFileService {
             throw new MinioException("Danh sách file của bucket " + bucket + " hiển thị lỗi!", e);
         }
     }
+
     @Override
     public List<ObjectDto> openFolder(String bucket, String prefix) {
         return listLevel(bucket, prefix);
@@ -98,6 +102,7 @@ public class FileServiceImpl implements IFileService {
             throw new MinioException("List level thất bại (bucket=" + bucket + ", prefix=" + p + ")", e);
         }
     }
+
     @Override
     public void delete(String bucket, String objectKey) {
         try {
@@ -130,6 +135,7 @@ public class FileServiceImpl implements IFileService {
             throw new MinioException("Service không thể xóa!", e);
         }
     }
+
     @Override
     public List<ObjectDto> back(String bucket, String currentPrefix) {
         String parent = parentPrefix(currentPrefix);
@@ -154,9 +160,9 @@ public class FileServiceImpl implements IFileService {
     }
 
     @Override
-    public void createNewObject(String bucket,String prefix, String objectKey) {
+    public void createNewObject(String bucket, String prefix, String objectKey) {
         String normPrefix = normalizePrefix(objectKey);
-        String folderName  = (prefix + normPrefix + "/");
+        String folderName = (prefix + normPrefix + "/");
         try (ByteArrayInputStream bais = new ByteArrayInputStream(new byte[0])) {
             PutObjectArgs args = PutObjectArgs.builder()
                     .bucket(bucket)
@@ -169,6 +175,7 @@ public class FileServiceImpl implements IFileService {
             throw new MinioException("Không thể tạo folder '" + folderName + "' trong bucket " + bucket, e);
         }
     }
+
     @Override
     public String parentPrefix(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";
@@ -176,11 +183,13 @@ public class FileServiceImpl implements IFileService {
         int idx = p.lastIndexOf('/');
         return (idx >= 0) ? p.substring(0, idx + 1) : "";
     }
+
     //chuẩn hóa
     private static String normalizePrefix(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";
         return prefix.endsWith("/") ? prefix : (prefix + "/");
     }
+
     private static String extractDisplayName(String prefix, String key) {
         String rest = key.substring(prefix == null ? 0 : prefix.length());
         if (rest.endsWith("/")) rest = rest.substring(0, rest.length() - 1); // bỏ "/" nếu là folder
@@ -232,6 +241,36 @@ public class FileServiceImpl implements IFileService {
             return out;
         } catch (Exception e) {
             throw new MinioException("Search thất bại (bucket=" + bucket + ", prefix=" + perfix + ")", e);
+        }
+    }
+
+    @Override
+    public DownloadDTO download(String bucket, String objectKey, Long offset, Long length) {
+        try {
+            StatObjectResponse stat = minioClient.statObject(
+                    StatObjectArgs.builder().bucket(bucket).object(objectKey).build()
+            );
+            String content = (stat.contentType() != null && !stat.contentType().isBlank())
+                    ? stat.contentType() : "application/octet-stream";
+            Long size = stat.size();
+            String name = normalizePrefix(objectKey);
+            Supplier<InputStream> supplier = () -> {
+                try {
+                    GetObjectArgs.Builder b = GetObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey);
+                    if (offset != null && offset >= 0) {
+                        b.offset(offset);
+                        if (length != null && length > 0) b.length(length);
+                    }
+                    return minioClient.getObject(b.build());
+                } catch (Exception e) {
+                    throw new MinioException("Không thể mở stream '" + objectKey + "'", e);
+                }
+            };
+            return new DownloadDTO(name, content, size, supplier);
+        } catch (Exception e) {
+            throw new MinioException("Không thể chuẩn bị download '" + objectKey + "'", e);
         }
     }
 }

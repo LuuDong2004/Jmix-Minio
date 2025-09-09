@@ -36,6 +36,7 @@
                     <button id="newBtn" text="New" classNames="btn-new"/>
                     <button id="downloadBtn" text="Download" classNames="btn-download"/>
                     <button id="deleteBtn" text="Delete" classNames="btn-delete" themeNames="error"/>
+<!--                    <button id="detailBtn" text="Detail"/>-->
                     <button id="backBtn" text="Back"/>
                 </hbox>
                 <hbox id="multiUploadBox" spacing="true" alignItems="CENTER"/>

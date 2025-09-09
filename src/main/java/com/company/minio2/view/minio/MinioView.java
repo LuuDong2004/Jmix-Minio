@@ -1,6 +1,7 @@
 package com.company.minio2.view.minio;
 
 import com.company.minio2.dto.BucketDto;
+import com.company.minio2.dto.DownloadDTO;
 import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
@@ -233,10 +234,46 @@ public class MinioView extends StandardView {
         updateState(currentBucket, prefixField != null ? prefixField.getValue() : currentPrefix);
         refreshFiles();
     }
+
     @Subscribe(id = "downloadBtn", subject = "clickListener")
     public void onDownloadBtnClick(final ClickEvent<JmixButton> event) {
-        Notification.show("Chức năng tải xuống chưa được triển khai");
+       ObjectDto selected = objects.getSingleSelectedItem();
+       if (selected == null || selected.getKey() == null || selected.getKey().isBlank()) {
+           Notification.show("Chưa chọn file");
+           return;
+       }
+        if (currentBucket == null || currentBucket.isBlank()) {
+            Notification.show("Chưa chọn bucket");
+            return;
+        }
+        try {
+            DownloadDTO data = fileService.download(currentBucket, selected.getKey(), null, null);
+
+            // Tạo StreamResource để tải qua app (đi qua phân quyền/phiên đăng nhập của bạn)
+            com.vaadin.flow.server.StreamResource resource = new com.vaadin.flow.server.StreamResource(
+                    data.getFileName(),
+                    () -> data.getStreamSupplier().get()
+            );
+            resource.setContentType(data.getContentType());
+
+            // Ép trình duyệt tải xuống (Content-Disposition: attachment)
+            com.vaadin.flow.component.html.Anchor a = new com.vaadin.flow.component.html.Anchor(resource, "");
+            a.getElement().setAttribute("download", true);
+            a.getStyle().set("display", "none");
+
+            // Gắn tạm vào DOM, click, rồi gỡ ra
+            getContent().getElement().appendChild(a.getElement());
+            a.getElement().callJsFunction("click");
+            a.getElement().removeFromParent();
+
+            Notification.show("Đang tải: " + data.getFileName());
+        } catch (Exception ex) {
+            Notification.show("Tải xuống thất bại");
+        }
+
+        Notification.show("Download file thành công!");
     }
+
 
     // xóa file
     @Subscribe(id = "deleteBtn", subject = "clickListener")
@@ -465,18 +502,17 @@ public class MinioView extends StandardView {
         return layout;
     }
 
-
-    private String getSelectedBucketName() {
-        BucketDto selected = buckets == null ? null : buckets.getSingleSelectedItem();
-        if (selected == null) {
-            updateState(null, "");
-            return null;
-        }
-        BucketDto root = rootOf(selected);
-        updateState(root != null ? root.getBucketName() : null,
-                TreeNode.FOLDER.equals(selected.getType()) ? selected.getPath() : "");
-        return currentBucket;
-    }
+//    private String getSelectedBucketName() {
+//        BucketDto selected = buckets == null ? null : buckets.getSingleSelectedItem();
+//        if (selected == null) {
+//            updateState(null, "");
+//            return null;
+//        }
+//        BucketDto root = rootOf(selected);
+//        updateState(root != null ? root.getBucketName() : null,
+//                TreeNode.FOLDER.equals(selected.getType()) ? selected.getPath() : "");
+//        return currentBucket;
+//    }
 
     private static String norm(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";
@@ -532,5 +568,10 @@ public class MinioView extends StandardView {
                     }
                 })
                 .open();
+    }
+    @Subscribe("objects")
+    public void onObjectsItemClick(final ItemClickEvent<ObjectDto> event) {
+
+        notifications.show("click oke");
     }
 }
