@@ -1,7 +1,9 @@
 package com.company.minio2.view.minio;
 
 import com.company.minio2.dto.ObjectDto;
+import com.company.minio2.service.minio.IBucketService;
 import com.company.minio2.service.minio.IFileService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +18,8 @@ import java.util.Map;
 public class MinioController {
 
     private final IFileService fileService;
+    @Autowired
+    private IBucketService bucketService;
 
     public MinioController(IFileService fileService) {
         this.fileService = fileService;
@@ -50,6 +54,7 @@ public class MinioController {
             return ResponseEntity.badRequest().build();
         }
     }
+
     @DeleteMapping(value = "/delete", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> delete(
             @RequestParam String bucket,
@@ -69,6 +74,35 @@ public class MinioController {
             err.put("objectKey", objectKey);
             err.put("error", e.getMessage());
             return ResponseEntity.badRequest().body(err);
+        }
+    }
+
+    @PostMapping(value = "/create-folder")
+    public ResponseEntity<?> createNewFolder(@RequestParam String bucket,
+                                             @RequestParam String prefix,
+                                             @RequestParam String folderName) {
+        try {
+            fileService.createNewObject(bucket, prefix, folderName);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    @GetMapping(value = "/get-all-bucket")
+    public ResponseEntity<?> listBuccket() {
+        try {
+            return ResponseEntity.ok(bucketService.getAllBuckets());
+        }catch (Exception e){
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    @DeleteMapping(value = "/delete-bucket")
+    public ResponseEntity<?> removeBucket(@RequestParam String bucketName) {
+        try {
+            bucketService.removeBucket(bucketName);
+            return ResponseEntity.ok().build();
+        }catch(Exception e){
+            return ResponseEntity.badRequest().build();
         }
     }
 

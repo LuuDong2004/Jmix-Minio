@@ -219,8 +219,6 @@ public class MinioView extends StandardView {
                 })
                 .open();
     }
-
-
     @Subscribe(id = "searchBtn", subject = "clickListener")
     public void onSearchBtnClick(final ClickEvent<JmixButton> event) {
         if (currentBucket == null || currentBucket.isBlank()) {
@@ -551,7 +549,5 @@ public class MinioView extends StandardView {
 
     @Subscribe("objects")
     public void onObjectsItemClick(final ItemClickEvent<ObjectDto> event) {
-
-
     }
 }
