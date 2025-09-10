@@ -137,7 +137,7 @@ public class FileServiceImpl implements IFileService {
     }
 
     @Override
-    public String uploadFile(String bucket, String objectKey, InputStream stream, long size, String contentType) {
+    public ObjectDto uploadFile(String bucket, String objectKey, InputStream stream, long size, String contentType) {
         try (stream) {
             minioClient.putObject(
                     PutObjectArgs.builder()
@@ -147,7 +147,13 @@ public class FileServiceImpl implements IFileService {
                             .contentType(contentType)
                             .build()
             );
-            return objectKey;
+            ObjectDto dto = new ObjectDto();
+            dto.setKey(objectKey);
+            dto.setName(extractDisplayName(null, objectKey));
+            dto.setType(TreeNode.FILE);
+            dto.setSize(size);
+            return dto;
+
         } catch (Exception e) {
             throw new MinioException("(Service)Tải file: " + objectKey + " lên bucket " + bucket, e);
         }
