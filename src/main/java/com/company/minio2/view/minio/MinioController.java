@@ -8,14 +8,16 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/minio")
-public class MinioUploadController {
+public class MinioController {
 
     private final IFileService fileService;
 
-    public MinioUploadController(IFileService fileService) {
+    public MinioController(IFileService fileService) {
         this.fileService = fileService;
     }
 
@@ -48,5 +50,26 @@ public class MinioUploadController {
             return ResponseEntity.badRequest().build();
         }
     }
-}
+    @DeleteMapping(value = "/delete", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> delete(
+            @RequestParam String bucket,
+            @RequestParam String objectKey) {
+        try {
+            fileService.delete(bucket, objectKey);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("bucket", bucket);
+            response.put("objectKey", objectKey);
+            response.put("message", objectKey.endsWith("/") ? "Đã xóa folder" : "Đã xóa file");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> err = new HashMap<>();
+            err.put("success", false);
+            err.put("bucket", bucket);
+            err.put("objectKey", objectKey);
+            err.put("error", e.getMessage());
+            return ResponseEntity.badRequest().body(err);
+        }
+    }
 
+}
