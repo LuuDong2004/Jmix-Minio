@@ -6,11 +6,18 @@
             <fetchPlan extends="_base">
                 <property name="permissionType"/>
                 <property name="user" fetchPlan="_base"/>
+                <property name="roleCode"/>
             </fetchPlan>
             <loader id="permissionsDl">
                 <query>
-                    <![CDATA[select p from Permission p
-                where p.filePath = :filePath and p.user = :user]]>
+                    <![CDATA[
+                select p from Permission p
+                where p.filePath = :filePath
+                  and (
+                       (p.user = :user)
+                       or (p.roleCode = :roleCode)
+                  )
+            ]]>
                 </query>
             </loader>
         </collection>
@@ -20,33 +27,50 @@
                 <property name="username"/>
             </fetchPlan>
             <loader id="usersDl" readOnly="true">
-                <query><![CDATA[select e from User e order by e.username]]></query>
+                <query>
+                    <![CDATA[
+                select u from User u
+                join Permission p on p.user = u
+                where p.filePath = :filePath
+            ]]>
+                </query>
             </loader>
+        </collection>
+        <collection id="objectDtosDc"
+                    class="com.company.minio2.entity.ObjectDTO">
         </collection>
         <collection id="rolesDc"
                     class="io.jmix.securitydata.entity.ResourceRoleEntity">
             <fetchPlan extends="_base">
-                <property name="name"/>
                 <property name="code"/>
+                <property name="name"/>
             </fetchPlan>
-            <loader id="rolesDl" readOnly="true">
-                <query><![CDATA[select r from sec_ResourceRoleEntity r order by r.name]]></query>
+            <loader id="rolesDl">
+                <query>
+                    <![CDATA[
+                select r from sec_ResourceRoleEntity r
+                where r.code in (
+                    select p.roleCode from Permission p
+                    where p.filePath = :filePath
+                      and p.roleCode is not null
+                )
+                order by r.name
+            ]]>
+                </query>
             </loader>
         </collection>
     </data>
     <layout height="500px" width="500px">
         <textArea id="fileKeyArea" label="Object key: " readOnly="true" width="100%"/>
+        <hbox spacing="true">
+            <button id="usersBtn" text="Users"/>
+            <button id="rolesBtn" text="Roles"/>
+        </hbox>
         <vbox spacing="true" width="100%" height="400px" >
-            <dataGrid id="usersDataGrid" dataContainer="usersDc" width="100%" height="200px">
+            <dataGrid id="objectDTODataGrid" dataContainer="objectDtosDc" width="100%" height="200px">
                 <columns>
-                    <column property="username" header="User" />
-                </columns>
-            </dataGrid>
-        </vbox>
-        <vbox spacing="true" width="100%" height="200px">
-            <dataGrid id="rolesDataGrid" dataContainer="rolesDc" width="100%" height="200px">
-                <columns>
-                    <column property="name" header="Role Name"/>
+                    <column property="name" header="Name"/>
+                    <column property="type" header="Type"/>
                 </columns>
             </dataGrid>
         </vbox>
