@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -220,6 +221,28 @@ public class FileServiceImpl implements IFileService {
         return name.trim();
     }
 
+    @Override
+    public ObjectDto uploadFile(String bucket, String objectKey, InputStream stream, long size, String contentType) {
+        try (stream) {
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .stream(stream, size, -1)
+                            .contentType(contentType)
+                            .build()
+            );
+            ObjectDto dto = new ObjectDto();
+            dto.setKey(objectKey);
+            dto.setName(extractDisplayName(null, objectKey));
+            dto.setType(TreeNode.FILE);
+            dto.setSize(size);
+            return dto;
+
+        } catch (Exception e) {
+            throw new MinioException("(Service)Tải file: " + objectKey + " lên bucket " + bucket, e);
+        }
+    }
 
 
 }

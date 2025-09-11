@@ -2,6 +2,7 @@ package com.company.minio2.service.minio;
 
 import com.company.minio2.dto.ObjectDto;
 
+import java.io.InputStream;
 import java.util.List;
 
 public interface IFileService {
@@ -12,4 +13,5 @@ public interface IFileService {
     String parentPrefix(String prefix);
     void delete(String bucket, String objectKey);
     void createFolder(String bucket, String folderName);
+    ObjectDto uploadFile(String bucket, String objectKey, InputStream stream, long size, String contentType);
 }

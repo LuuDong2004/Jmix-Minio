@@ -29,6 +29,8 @@
                         <action id="createFolder" type="list_create" />
                         <action id="renameFolder" type="list_edit"/>
                         <action id="deleteFolder" type="list_remove"/>
+                        <action id="assignPermission" text="Assign Permission">
+                        </action>
                     </actions>
 
                 </treeDataGrid>

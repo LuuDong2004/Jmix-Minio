@@ -4,9 +4,7 @@ import com.company.minio2.dto.BucketDto;
 import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
 
-import com.company.minio2.entity.File;
 import com.company.minio2.entity.Permission;
-import com.company.minio2.entity.PermissionType;
 import com.company.minio2.entity.User;
 import com.company.minio2.service.minio.IBucketService;
 import com.company.minio2.service.minio.IFileService;
@@ -25,7 +23,6 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.router.Route;
 import io.jmix.core.DataManager;
 import io.jmix.flowui.DialogWindows;
-import io.jmix.flowui.Dialogs;
 import io.jmix.flowui.component.grid.DataGrid;
 import io.jmix.flowui.component.grid.TreeDataGrid;
 import io.jmix.flowui.component.textfield.TypedTextField;
@@ -38,7 +35,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 @Route(value = "minio-view", layout = MainView.class)
 @ViewController(id = "MinioView")
@@ -274,6 +270,32 @@ public class MinioView extends StandardView {
         }
     }
 
+    @Subscribe("buckets.assignPermission")
+    public void onBucketsAssignPermission1(final ActionPerformedEvent event) {
+        BucketDto item = buckets.getSingleSelectedItem(); // ✅ lấy từ tree grid
+        if (item == null) {
+            Notification.show("Không có bucket được chọn");
+            return;
+        }
+        if (TreeNode.BUCKET.equals(item.getType()) || TreeNode.FOLDER.equals(item.getType())) {
+            try {
+                DialogWindow<AssignPermissionDialog> window =
+                        dialogWindows.view(this, AssignPermissionDialog.class).build();
+
+                if (TreeNode.BUCKET.equals(item.getType())) {
+                    window.getView().setFilePath(item.getBucketName());
+                } else {
+                    window.getView().setFilePath(item.getPath());
+                }
+                window.open();
+            } catch (Exception e) {
+                toastErr("Không thể mở popup phân quyền", e);
+            }
+        } else if (TreeNode.FILE.equals(item.getType())) {
+            Notification.show("Không thể phân quyền trực tiếp cho file: " + item.getBucketName());
+        }
+    }
+
     // Double click: mở object con bên phải
     @Subscribe("objects")
     public void onObjectsItemDoubleClick(final ItemDoubleClickEvent<ObjectDto> event) {
@@ -462,7 +484,7 @@ public class MinioView extends StandardView {
         ObjectDto selected = objects.getSingleSelectedItem();
         List<User> userList = dataManager.load(User.class).all().list();
         DialogWindow<AssignPermissionDialog> window = dialogWindows.view(this, AssignPermissionDialog.class).build();
-        window.getView().setFilePath(selected.getKey());
+        window.getView().setFilePath(currentBucket + "/" + selected.getKey());
         window.open();
     }
 
