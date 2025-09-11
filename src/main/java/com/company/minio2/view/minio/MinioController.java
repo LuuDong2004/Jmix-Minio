@@ -105,6 +105,25 @@ public class MinioController {
             return ResponseEntity.badRequest().build();
         }
     }
+    @PostMapping(value = "/create-bucket")
+    public ResponseEntity<?> createBucket(@RequestParam String bucketName) {
+        try{
+            bucketService.createBucket(bucketName);
+            return ResponseEntity.ok().build();
+        }catch(Exception e){
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping(value = "/get-objects")
+    public ResponseEntity<?> getAllFromBucket(@RequestParam String bucket,
+                                              @RequestParam String prefix){
+        try{
+            return ResponseEntity.ok(fileService.getAllFromBucket(bucket, prefix));
+        }catch(Exception e){
+            return ResponseEntity.badRequest().build();
+        }
+    }
 
     @PostMapping(value = "/create-bucket")
     public ResponseEntity<?> createBucket(@RequestParam String bucketName) {
