@@ -219,6 +219,7 @@ public class MinioView extends StandardView {
                 })
                 .open();
     }
+
     @Subscribe(id = "searchBtn", subject = "clickListener")
     public void onSearchBtnClick(final ClickEvent<JmixButton> event) {
         if (currentBucket == null || currentBucket.isBlank()) {
@@ -256,13 +257,14 @@ public class MinioView extends StandardView {
         }
 
         try {
-              String url = fileService.download(currentBucket,selected.getKey() , 300);
-             getUI().ifPresent(ui -> ui.getPage().open(url));
-             Notification.show("Downloading '" + selected.getKey() + "'");
+            String url = fileService.download(currentBucket, selected.getKey(), 300);
+            getUI().ifPresent(ui -> ui.getPage().open(url));
+            Notification.show("Downloading '" + selected.getKey() + "'");
         } catch (Exception e) {
             Notification.show("Tải xuống thất bại: " + e.getMessage());
         }
     }
+
     // xóa file
     @Subscribe(id = "deleteBtn", subject = "clickListener")
     public void onDeleteFileBtnClick(ClickEvent<JmixButton> event) {
@@ -275,13 +277,22 @@ public class MinioView extends StandardView {
             Notification.show("Chọn folder or file để xóa!");
             return;
         }
-        try {
-            fileService.delete(currentBucket, object.getKey());
-            Notification.show("xóa thành công!" + object.getKey());
-            refreshFiles();
-        } catch (Exception e) {
-            Notification.show("Lỗi không thể xóa" + object.getKey() + " của bucket " + currentBucket);
-        }
+        ConfirmDialog dlg = new ConfirmDialog();
+        dlg.setHeader("Xác nhận");
+        dlg.setText("Xóa file '" + object.getName() + " ?");
+        dlg.setCancelable(true);
+        dlg.setConfirmText("Xóa");
+        dlg.addConfirmListener(e2 -> {
+                    try {
+                        fileService.delete(currentBucket, object.getKey());
+                        Notification.show("Đã xóa bucket: " + object.getName());
+                        loadAllBuckets();
+                        loadObjectFromBucket();
+                    } catch (Exception ex) {
+                        toastErr("Không thể xóa bucket (có thể bucket chưa rỗng).", ex);
+                    }
+                });
+        dlg.open();
     }
 
     @Subscribe(id = "deleteBucketBtn", subject = "clickListener")
@@ -297,7 +308,7 @@ public class MinioView extends StandardView {
             if (TreeNode.BUCKET.equals(selected.getType())) {
                 ConfirmDialog dlg = new ConfirmDialog();
                 dlg.setHeader("Xác nhận");
-                dlg.setText("Xóa BUCKET '" + selected.getBucketName() + "'?\n(Lưu ý: bucket phải rỗng)");
+                dlg.setText("Xóa bucket '" + selected.getBucketName() + " ?");
                 dlg.setCancelable(true);
                 dlg.setConfirmText("Xóa");
                 dlg.addConfirmListener(e2 -> {
