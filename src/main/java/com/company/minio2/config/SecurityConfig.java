@@ -10,6 +10,8 @@ import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
 public class SecurityConfig {
+
+    // CHAIN CHỈ ÁP DỤNG CHO /api/**
     @Bean
     @Order(1) // ưu tiên chain này trước chain mặc định của Jmix
     public SecurityFilterChain apiChain(HttpSecurity http) throws Exception {
@@ -23,7 +25,7 @@ public class SecurityConfig {
 
                 // Phân quyền cho API
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.POST, "/api/minio/upload","/api/minio/delete").permitAll() // mở để test
+                        .requestMatchers(HttpMethod.POST, "/api/minio/upload").permitAll() // mở để test
                         // .requestMatchers("/api/**").authenticated() // khi muốn bảo mật
                         .anyRequest().permitAll()
                 )
@@ -33,7 +35,4 @@ public class SecurityConfig {
 
         return http.build();
     }
-
-
-
 }

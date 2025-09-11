@@ -4,9 +4,15 @@ import com.company.minio2.dto.BucketDto;
 import com.company.minio2.dto.DownloadDTO;
 import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
+
 import com.company.minio2.exception.MinioException;
+
+import com.company.minio2.entity.Permission;
+import com.company.minio2.entity.User;
+
 import com.company.minio2.service.minio.IBucketService;
 import com.company.minio2.service.minio.IFileService;
+import com.company.minio2.view.assignpermissiondialog.AssignPermissionDialog;
 import com.company.minio2.view.main.MainView;
 
 import com.vaadin.flow.component.ClickEvent;
@@ -23,22 +29,27 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.server.StreamResource;
+
+
 import io.jmix.flowui.Dialogs;
 import io.jmix.flowui.Notifications;
 import io.jmix.flowui.app.inputdialog.DialogActions;
 import io.jmix.flowui.app.inputdialog.DialogOutcome;
-import io.jmix.flowui.app.inputdialog.InputParameter;
+
 import io.jmix.flowui.component.grid.DataGrid;
 import io.jmix.flowui.component.grid.TreeDataGrid;
 import io.jmix.flowui.component.textfield.TypedTextField;
 import com.vaadin.flow.component.upload.receivers.MultiFileMemoryBuffer;
+
+import io.jmix.core.DataManager;
+import io.jmix.flowui.DialogWindows;
+import io.jmix.flowui.kit.action.ActionPerformedEvent;
+
 import io.jmix.flowui.kit.component.button.JmixButton;
 
 
 import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.view.*;
-
 
 import org.aspectj.weaver.ast.Var;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +57,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.InputStream;
 import java.net.URLConnection;
+import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -59,8 +71,12 @@ public class MinioView extends StandardView {
 
     @Autowired
     private IBucketService bucketService;
+
     @Autowired
     private IFileService fileService;
+
+    @Autowired
+    private DataManager dataManager;
 
     @ViewComponent
     private CollectionContainer<BucketDto> bucketsDc;
@@ -78,7 +94,8 @@ public class MinioView extends StandardView {
     private DataGrid<ObjectDto> objects;
 
     @ViewComponent
-    private TypedTextField<String> prefixField;
+    private DataGrid<Permission> permissionsDataGrid;
+
 
     private String currentBucket;
     private String currentPrefix = "";
@@ -91,6 +108,13 @@ public class MinioView extends StandardView {
     private Dialogs dialogs;
     @Autowired
     private Notifications notifications;
+
+    @ViewComponent
+    private TypedTextField<String> prefixField;
+
+    @Autowired
+    private DialogWindows dialogWindows;
+
 
     @Subscribe
     public void onInit(InitEvent event) {
@@ -174,7 +198,8 @@ public class MinioView extends StandardView {
         try {
             if (currentBucket == null || currentBucket.isBlank()) {
                 filesDc.setItems(List.of());
-                if (backBtn != null) backBtn.setEnabled(false);
+                if (backBtn != null)
+                    backBtn.setEnabled(false);
                 return;
             }
             List<ObjectDto> list = fileService.getAllFromBucket(currentBucket, currentPrefix);
@@ -322,6 +347,11 @@ public class MinioView extends StandardView {
                 if (folderPrefix == null) folderPrefix = "";
                 if (!folderPrefix.isEmpty() && !folderPrefix.endsWith("/")) folderPrefix = folderPrefix + "/";
 
+                if (folderPrefix == null)
+                    folderPrefix = "";
+                if (!folderPrefix.isEmpty() && !folderPrefix.endsWith("/"))
+                    folderPrefix = folderPrefix + "/";
+
                 ConfirmDialog dlg = new ConfirmDialog();
                 dlg.setHeader("Xác nhận");
                 dlg.setText("Xóa FOLDER '" + folderPrefix + "' và toàn bộ bên trong?");
@@ -375,11 +405,38 @@ public class MinioView extends StandardView {
         }
     }
 
+    @Subscribe("buckets.assignPermission")
+    public void onBucketsAssignPermission1(final ActionPerformedEvent event) {
+        BucketDto item = buckets.getSingleSelectedItem(); // ✅ lấy từ tree grid
+        if (item == null) {
+            Notification.show("Không có bucket được chọn");
+            return;
+        }
+        if (TreeNode.BUCKET.equals(item.getType()) || TreeNode.FOLDER.equals(item.getType())) {
+            try {
+                DialogWindow<AssignPermissionDialog> window =
+                        dialogWindows.view(this, AssignPermissionDialog.class).build();
+
+                if (TreeNode.BUCKET.equals(item.getType())) {
+                    window.getView().setFilePath(item.getBucketName());
+                } else {
+                    window.getView().setFilePath(item.getPath());
+                }
+                window.open();
+            } catch (Exception e) {
+                toastErr("Không thể mở popup phân quyền", e);
+            }
+        } else if (TreeNode.FILE.equals(item.getType())) {
+            Notification.show("Không thể phân quyền trực tiếp cho file: " + item.getBucketName());
+        }
+    }
+
     // Double click: mở object con bên phải
     @Subscribe("objects")
     public void onObjectsItemDoubleClick(final ItemDoubleClickEvent<ObjectDto> event) {
         ObjectDto item = event.getItem();
-        if (item == null) return;
+        if (item == null)
+            return;
         if (TreeNode.FOLDER.equals(item.getType())) {
             if (currentBucket == null || currentBucket.isBlank()) {
                 Notification.show("Không tìm thấy bucket");
@@ -390,8 +447,8 @@ public class MinioView extends StandardView {
                 String next = (item.getKey() != null && !item.getKey().isBlank())
                         ? item.getKey()
                         : (item.getPath() != null && !item.getPath().isBlank())
-                        ? item.getPath()
-                        : item.getName();
+                                ? item.getPath()
+                                : item.getName();
                 updateState(currentBucket, next);
                 if (item.getChildren() == null || item.getChildren().isEmpty()) {
                     List<ObjectDto> children = fileService.openFolder(currentBucket, currentPrefix);
@@ -411,7 +468,8 @@ public class MinioView extends StandardView {
     @Subscribe("buckets")
     public void onBucketsItemClick(final ItemClickEvent<BucketDto> event) {
         BucketDto item = event.getItem();
-        if (item == null) return;
+        if (item == null)
+            return;
 
         if (TreeNode.BUCKET.equals(item.getType())) {
             updateState(item.getBucketName(), "");
@@ -419,7 +477,6 @@ public class MinioView extends StandardView {
             refreshFiles();
         }
     }
-
 
     private void viewItemObject() {
         if (buckets.getColumnByKey("name") != null) {
@@ -492,13 +549,15 @@ public class MinioView extends StandardView {
 
 
     private static String norm(String prefix) {
-        if (prefix == null || prefix.isBlank()) return "";
+        if (prefix == null || prefix.isBlank())
+            return "";
         return prefix.endsWith("/") ? prefix : prefix + "/";
     }
 
     // luôn lấy bucket gốc của 1 node
     private static BucketDto rootOf(BucketDto n) {
-        while (n != null && n.getParent() != null) n = n.getParent();
+        while (n != null && n.getParent() != null)
+            n = n.getParent();
         return n;
     }
 
@@ -506,14 +565,15 @@ public class MinioView extends StandardView {
     private void updateState(String bucket, String prefix) {
         this.currentBucket = bucket;
         this.currentPrefix = norm(prefix);
-        if (prefixField != null) prefixField.setValue(this.currentPrefix);
-        if (backBtn != null) backBtn.setEnabled(!this.currentPrefix.isBlank());
+        if (prefixField != null)
+            prefixField.setValue(this.currentPrefix);
+        if (backBtn != null)
+            backBtn.setEnabled(!this.currentPrefix.isBlank());
     }
 
     private static void toastErr(String msg, Exception e) {
         Notification.show(msg + ": " + (e.getMessage() == null ? e.toString() : e.getMessage()));
     }
-
 
     //new folder
     @Subscribe(id = "newBtn", subject = "clickListener")
@@ -521,6 +581,32 @@ public class MinioView extends StandardView {
         if (currentBucket == null || currentBucket.isBlank()) {
             notifications.show("Vui lòng chọn bucket trước!");
             return;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private void selectTreeNode(String bucket, String prefix) {
+        if (bucketsDc == null || bucketsDc.getItems() == null)
+            return;
+        String p = norm(prefix);
+        ArrayDeque<BucketDto> q = new ArrayDeque<>(bucketsDc.getItems());
+        while (!q.isEmpty()) {
+            BucketDto n = q.remove();
+            boolean ok = (TreeNode.BUCKET.equals(n.getType()) && p.isBlank()
+                    && bucket != null && bucket.equals(n.getBucketName()))
+                    || (TreeNode.FOLDER.equals(n.getType())
+                            && bucket != null && bucket.equals(n.getBucketName())
+                            && p.equals(norm(n.getPath())));
+            if (ok) {
+                buckets.select(n);
+                try {
+                    buckets.expand(n);
+                } catch (Throwable ignore) {
+                }
+                return;
+            }
+            if (n.getChildren() != null)
+                q.addAll(n.getChildren());
         }
         dialogs.createInputDialog(this)
                 .withHeader("Tạo mới folder")
@@ -550,4 +636,15 @@ public class MinioView extends StandardView {
     @Subscribe("objects")
     public void onObjectsItemClick(final ItemClickEvent<ObjectDto> event) {
     }
+
+    @Subscribe("objects.assignPermission")
+    public void onObjectsAssignPermission(final ActionPerformedEvent event) {
+        ObjectDto selected = objects.getSingleSelectedItem();
+        List<User> userList = dataManager.load(User.class).all().list();
+        DialogWindow<AssignPermissionDialog> window = dialogWindows.view(this, AssignPermissionDialog.class).build();
+        window.getView().setFilePath(currentBucket + "/" + selected.getKey());
+        window.open();
+    }
+
+
 }
