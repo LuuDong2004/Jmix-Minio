@@ -11,7 +11,6 @@ import java.util.List;
 public class ObjectDto {
     @JmixId
     private String key;
-
     private List<ObjectDto> children;
 
     @JmixProperty(mandatory = true)
@@ -22,9 +21,7 @@ public class ObjectDto {
     private LocalDateTime lastModified;
     @JmixProperty(mandatory = true)
     private String name;
-
     private ObjectDto parent;
-
     @JmixProperty(mandatory = true)
     private String path;
 

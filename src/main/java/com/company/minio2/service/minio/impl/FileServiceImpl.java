@@ -6,6 +6,7 @@ import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
 import com.company.minio2.service.minio.IFileService;
 import io.minio.*;
+import io.minio.http.Method;
 import io.minio.messages.DeleteError;
 import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
@@ -241,6 +242,85 @@ public class FileServiceImpl implements IFileService {
 
         } catch (Exception e) {
             throw new MinioException("(Service)Tải file: " + objectKey + " lên bucket " + bucket, e);
+        }
+    }
+
+    @Override
+    public void createNewObject(String bucket, String prefix, String objectKey) {
+        String normPrefix = normalizePrefix(objectKey);
+        String folderName = (prefix + normPrefix + "/");
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(new byte[0])) {
+            PutObjectArgs args = PutObjectArgs.builder()
+                    .bucket(bucket)
+                    .object(folderName)
+                    .stream(bais, 0, -1)
+                    .contentType("application/x-directory")
+                    .build();
+            minioClient.putObject(args);
+        } catch (Exception e) {
+            throw new MinioException("Không thể tạo folder '" + folderName + "' trong bucket " + bucket, e);
+        }
+    }
+
+    @Override
+    public List<ObjectDto> search(String bucket, String prefix, String nameFragment) {
+        String perfix = normalizePrefix(prefix);
+        String name = (nameFragment == null) ? "" : nameFragment.trim().toLowerCase();
+
+        try {
+            Iterable<Result<Item>> items = minioClient.listObjects(
+                    ListObjectsArgs.builder()
+                            .bucket(bucket)
+                            .prefix(perfix)
+                            .recursive(true)
+                            .build()
+            );
+
+            List<ObjectDto> out = new ArrayList<>();
+            for (Result<Item> r : items) {
+                Item it = r.get();
+                String key = it.objectName();
+                if (key == null || key.isBlank()) continue;
+
+                String displayName = extractDisplayName(perfix, key);
+
+                boolean match = name.isEmpty()
+                        || key.toLowerCase().contains(name)
+                        || displayName.toLowerCase().contains(name);
+
+                if (match) {
+                    ObjectDto dto = new ObjectDto();
+                    dto.setKey(key);
+                    dto.setName(displayName);
+                    dto.setType(it.isDir() ? TreeNode.FOLDER : TreeNode.FILE);
+                    dto.setSize(it.isDir() ? null : it.size());
+                    dto.setLastModified(
+                            (it.isDir() || it.lastModified() == null)
+                                    ? null
+                                    : it.lastModified().toLocalDateTime()
+                    );
+                    out.add(dto);
+                }
+            }
+            return out;
+        } catch (Exception e) {
+            throw new MinioException("Search thất bại (bucket=" + bucket + ", prefix=" + perfix + ")", e);
+        }
+    }
+
+    @Override
+    public String download(String bucket, String objectKey, int expirySeconds) {
+        try {
+            return minioClient.getPresignedObjectUrl(
+                    GetPresignedObjectUrlArgs.builder()
+                            .method(Method.GET)
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .expiry(expirySeconds > 0 ? expirySeconds : properties.presignExpirySeconds())
+                            .build()
+            );
+        } catch (Exception e) {
+            throw new MinioException("Presigned GET failed: " + objectKey + " in bucket=" + bucket, e);
         }
     }
 

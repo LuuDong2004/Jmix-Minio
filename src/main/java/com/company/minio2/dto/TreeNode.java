@@ -1,10 +1,6 @@
 package com.company.minio2.dto;
-
 import io.jmix.core.metamodel.datatype.EnumClass;
-
 import org.springframework.lang.Nullable;
-
-
 public enum TreeNode implements EnumClass<String> {
     BUCKET("BUCKET"),
     FOLDER("FOLDER"),
