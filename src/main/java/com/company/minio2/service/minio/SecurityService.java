@@ -20,6 +20,10 @@ public class SecurityService {
         int mask = 0;
         for (Permission p : permissions) {
             if (Boolean.TRUE.equals(p.getAllow())) {
+                if (p.getPermissionType() == PermissionType.FULL) {
+                    mask = PermissionType.FULL.getValue(); // chỉ FULL thôi
+                    break;
+                }
                 mask |= p.getPermissionType().getValue();
             }
         }
@@ -47,6 +51,10 @@ public class SecurityService {
         int mask = 0;
         for (Permission p : permissions) {
             if (Boolean.TRUE.equals(p.getAllow())) {
+                if (p.getPermissionType() == PermissionType.FULL) {
+                    mask = PermissionType.FULL.getValue(); // chỉ FULL thôi
+                    break;
+                }
                 mask |= p.getPermissionType().getValue();
             }
         }
@@ -80,14 +88,11 @@ public class SecurityService {
         if (perm == null) {
             return false;
         }
-
         int mask = perm.getPermissionMask();
-
         // Nếu có FULL (8) thì coi như có tất cả quyền
         if ((mask & 8) == 8) {
             return true;
         }
-
         switch (type) {
             case READ:
                 return (mask & 1) == 1;
