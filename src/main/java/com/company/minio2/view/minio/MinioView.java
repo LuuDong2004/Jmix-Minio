@@ -193,7 +193,6 @@ public class MinioView extends StandardView {
         }
 
     }
-
     //new bucket
     @Subscribe(id = "createBucketBtn", subject = "clickListener")
     public void onCreateBucketBtnClick(final ClickEvent<JmixButton> event) {
@@ -360,7 +359,6 @@ public class MinioView extends StandardView {
             toastErr("Không thể xóa", e);
         }
     }
-
     @Subscribe("backBtn")
     public void onBackBtnClick(ClickEvent<JmixButton> event) {
         if (currentBucket == null || currentBucket.isBlank()) {
@@ -385,7 +383,6 @@ public class MinioView extends StandardView {
             toastErr("Lỗi quay lại", ex);
         }
     }
-
     // Double click: mở object con bên phải
     @Subscribe("objects")
     public void onObjectsItemDoubleClick(final ItemDoubleClickEvent<ObjectDto> event) {
@@ -397,7 +394,6 @@ public class MinioView extends StandardView {
                 return;
             }
             try {
-                // Ưu tiên key (full path), fallback path/name
                 String next = (item.getKey() != null && !item.getKey().isBlank())
                         ? item.getKey()
                         : (item.getPath() != null && !item.getPath().isBlank())
@@ -417,8 +413,6 @@ public class MinioView extends StandardView {
             Notification.show("Double click file: " + item.getName());
         }
     }
-
-    // Click vào 1 item của tree (buckets)
     @Subscribe("buckets")
     public void onBucketsItemClick(final ItemClickEvent<BucketDto> event) {
         BucketDto item = event.getItem();
@@ -426,7 +420,7 @@ public class MinioView extends StandardView {
 
         if (TreeNode.BUCKET.equals(item.getType())) {
             updateState(item.getBucketName(), "");
-            Notification.show("name: " + this.currentBucket);
+//            Notification.show("name: " + this.currentBucket);
             refreshFiles();
         }
     }
