@@ -151,7 +151,6 @@ public class MinioView extends StandardView {
             toastErr("Load buckets failed", e);
         }
     }
-
     private void loadObjectFromBucket() {
         try {
             BucketDto selected = buckets.getSingleSelectedItem();
@@ -254,7 +253,6 @@ public class MinioView extends StandardView {
             Notification.show("Chưa chọn bucket");
             return;
         }
-
         try {
             String url = fileService.download(currentBucket, selected.getKey(), 300);
             getUI().ifPresent(ui -> ui.getPage().open(url));
