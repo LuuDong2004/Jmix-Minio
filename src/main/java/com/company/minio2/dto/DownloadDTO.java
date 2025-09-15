@@ -1,10 +1,6 @@
 package com.company.minio2.dto;
-
-
-
 import java.io.InputStream;
 import java.util.function.Supplier;
-
 
 public class DownloadDTO {
     private final String fileName;

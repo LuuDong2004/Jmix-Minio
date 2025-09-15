@@ -80,7 +80,7 @@ public class FileServiceImpl implements IFileService {
                             .build()
             );
 
-            List<ObjectDto> out = new ArrayList<>();
+            List<ObjectDto> object = new ArrayList<>();
             for (Result<Item> r : items) {
                 Item it = r.get();
                 String key = it.objectName();
@@ -96,9 +96,9 @@ public class FileServiceImpl implements IFileService {
                                 ? null
                                 : it.lastModified().toLocalDateTime()
                 );
-                out.add(dto);
+                object.add(dto);
             }
-            return out;
+            return object;
         } catch (Exception e) {
             throw new MinioException("List level thất bại (bucket=" + bucket + ", prefix=" + p + ")", e);
         }
