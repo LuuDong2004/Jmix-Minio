@@ -72,6 +72,8 @@ public class EditPermission extends StandardView {
     private CollectionLoader<ResourceRoleEntity> rolesDl;
 
     private ObjectDTO target;
+    @ViewComponent
+    private CollectionContainer<Permission> permissionsDc;
 
     public void setFilePath(String filePath) {
         this.filePath = filePath;
@@ -96,8 +98,18 @@ public class EditPermission extends StandardView {
                     checkbox.addValueChangeListener(e -> {
                         if (e.getValue()) {
                             permission.setAllow(true);
-                        } else if (Boolean.TRUE.equals(permission.getAllow())) {
-                            permission.setAllow(null);
+                            if (permission.getPermissionType().equals(PermissionType.MODIFY)) {
+                                CollectionContainer<Permission> permissionsDc = getViewData().getContainer("permissionsDc");
+                                for (Permission p : permissionsDc.getItems()) {
+                                    if (p.getPermissionType().equals(PermissionType.READ)
+                                            || p.getPermissionType().equals(PermissionType.CREATE)) {
+                                        p.setAllow(true);
+                                        permissionDataGrid.getDataProvider().refreshItem(p);
+                                    }
+                                }
+                            }
+                        } else {
+                            permission.setAllow(false);
                         }
                         permissionDataGrid.getDataProvider().refreshItem(permission);
                     });
@@ -113,7 +125,20 @@ public class EditPermission extends StandardView {
                     checkbox.addValueChangeListener(e -> {
                         if (e.getValue()) {
                             permission.setAllow(false);
+                            if (permission.getPermissionType().equals(PermissionType.READ)) {
+                                CollectionContainer<Permission> permissionsDc = getViewData().getContainer("permissionsDc");
+                                for (Permission p : permissionsDc.getItems()) {
+                                    if (p.getPermissionType().equals(PermissionType.CREATE)
+                                    || p.getPermissionType().equals(PermissionType.MODIFY)) {
+                                        p.setAllow(false);
+                                        permissionDataGrid.getDataProvider().refreshItem(p);
+                                    }
+                                }
+                            }
+                        } else {
+                            permission.setAllow(true);
                         }
+                        permissionDataGrid.getDataProvider().refreshItem(permission);
                     });
                     return checkbox;
                 })

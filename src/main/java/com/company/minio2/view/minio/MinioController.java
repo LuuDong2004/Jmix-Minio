@@ -2,6 +2,7 @@ package com.company.minio2.view.minio;
 
 import com.company.minio2.entity.PermissionType;
 import com.company.minio2.entity.User;
+import com.company.minio2.service.minio.IBucketService;
 import com.company.minio2.service.minio.SecurityService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,10 +24,12 @@ public class MinioController {
 
     private final IFileService fileService;
     private final SecurityService securityService;
+    private final IBucketService bucketService;
 
-    public MinioController(IFileService fileService, SecurityService securityService) {
+    public MinioController(IFileService fileService, SecurityService securityService, IBucketService bucketService) {
         this.fileService = fileService;
         this.securityService = securityService;
+        this.bucketService = bucketService;
     }
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE,
@@ -45,7 +48,7 @@ public class MinioController {
             String objectKey = normalizedPrefix + filename;
             String filePath = bucket + "/" + objectKey;
 
-            // 🚨 Check quyền
+            // Check quyền
             if (!securityService.hasPermission(user, PermissionType.CREATE, filePath) &&
                     !securityService.hasPermission(user, PermissionType.FULL, filePath)) {
                 return ResponseEntity.status(403).body("Bạn không có quyền upload: " + filePath);
@@ -68,7 +71,7 @@ public class MinioController {
         try {
             String filePath = bucket + "/" + objectKey;
 
-            // 🚨 Check quyền
+            // Check quyền
             if (!securityService.hasPermission(user, PermissionType.FULL, filePath)) {
                 return ResponseEntity.status(403).body("Bạn không có quyền xóa: " + filePath);
             }
@@ -90,5 +93,52 @@ public class MinioController {
         }
     }
 
+    @PostMapping(value = "/create-folder")
+    public ResponseEntity<?> createNewFolder(@RequestParam String bucket,
+                                             @RequestParam String prefix,
+                                             @RequestParam String folderName) {
+        try {
+            fileService.createNewObject(bucket, prefix, folderName);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    @GetMapping(value = "/get-all-bucket")
+    public ResponseEntity<?> listBuccket() {
+        try {
+            return ResponseEntity.ok(bucketService.getAllBuckets());
+        }catch (Exception e){
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    @DeleteMapping(value = "/delete-bucket")
+    public ResponseEntity<?> removeBucket(@RequestParam String bucketName) {
+        try {
+            bucketService.removeBucket(bucketName);
+            return ResponseEntity.ok().build();
+        }catch(Exception e){
+            return ResponseEntity.badRequest().build();
+        }
+    }
 
+    @PostMapping(value = "/create-bucket")
+    public ResponseEntity<?> createBucket(@RequestParam String bucketName) {
+        try{
+            bucketService.createBucket(bucketName);
+            return ResponseEntity.ok().build();
+        }catch(Exception e){
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping(value = "/get-objects")
+    public ResponseEntity<?> getAllFromBucket(@RequestParam String bucket,
+                                              @RequestParam String prefix){
+        try{
+            return ResponseEntity.ok(fileService.getAllFromBucket(bucket, prefix));
+        }catch(Exception e){
+            return ResponseEntity.badRequest().build();
+        }
+    }
 }

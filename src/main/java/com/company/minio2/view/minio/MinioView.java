@@ -1,7 +1,7 @@
 package com.company.minio2.view.minio;
 
 import com.company.minio2.dto.BucketDto;
-import com.company.minio2.dto.DownloadDTO;
+
 import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
 
@@ -20,7 +20,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.ItemClickEvent;
 import com.vaadin.flow.component.grid.ItemDoubleClickEvent;
-import com.vaadin.flow.component.html.Anchor;
+
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -51,7 +51,7 @@ import io.jmix.flowui.kit.component.button.JmixButton;
 import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.view.*;
 
-import org.aspectj.weaver.ast.Var;
+
 import org.springframework.beans.factory.annotation.Autowired;
 
 
@@ -407,7 +407,7 @@ public class MinioView extends StandardView {
 
     @Subscribe("buckets.assignPermission")
     public void onBucketsAssignPermission1(final ActionPerformedEvent event) {
-        BucketDto item = buckets.getSingleSelectedItem(); // ✅ lấy từ tree grid
+        BucketDto item = buckets.getSingleSelectedItem(); // lấy từ tree grid
         if (item == null) {
             Notification.show("Không có bucket được chọn");
             return;
@@ -417,10 +417,12 @@ public class MinioView extends StandardView {
                 DialogWindow<AssignPermissionDialog> window =
                         dialogWindows.view(this, AssignPermissionDialog.class).build();
 
+                BucketDto root = rootOf(item);
+                String bucket = root != null ? root.getBucketName() : item.getBucketName();
                 if (TreeNode.BUCKET.equals(item.getType())) {
                     window.getView().setFilePath(item.getBucketName());
                 } else {
-                    window.getView().setFilePath(item.getPath());
+                    window.getView().setFilePath(bucket + "/" + item.getPath());
                 }
                 window.open();
             } catch (Exception e) {
@@ -645,6 +647,5 @@ public class MinioView extends StandardView {
         window.getView().setFilePath(currentBucket + "/" + selected.getKey());
         window.open();
     }
-
 
 }
