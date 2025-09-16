@@ -33,6 +33,7 @@
                     <textField id="prefixField" placeholder="Search file.."/>
                     <button id="searchBtn" text="Search" classNames="btn-search"/>
                     <upload id="fileUpload"/>
+                    <upload id="folderUpload"/>
                     <button id="newBtn" text="New" classNames="btn-new"/>
                     <button id="downloadBtn" text="Download" classNames="btn-download"/>
                     <button id="deleteBtn" text="Delete" classNames="btn-delete" themeNames="error"/>

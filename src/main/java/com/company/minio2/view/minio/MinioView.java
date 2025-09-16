@@ -1,7 +1,6 @@
 package com.company.minio2.view.minio;
 
 import com.company.minio2.dto.BucketDto;
-import com.company.minio2.dto.DownloadDTO;
 import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
@@ -14,7 +13,6 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.ItemClickEvent;
 import com.vaadin.flow.component.grid.ItemDoubleClickEvent;
-import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -23,12 +21,12 @@ import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.router.Route;
-import com.vaadin.flow.server.StreamResource;
+
 import io.jmix.flowui.Dialogs;
 import io.jmix.flowui.Notifications;
 import io.jmix.flowui.app.inputdialog.DialogActions;
 import io.jmix.flowui.app.inputdialog.DialogOutcome;
-import io.jmix.flowui.app.inputdialog.InputParameter;
+
 import io.jmix.flowui.component.grid.DataGrid;
 import io.jmix.flowui.component.grid.TreeDataGrid;
 import io.jmix.flowui.component.textfield.TypedTextField;
@@ -40,7 +38,7 @@ import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.view.*;
 
 
-import org.aspectj.weaver.ast.Var;
+import io.minio.MinioClient;
 import org.springframework.beans.factory.annotation.Autowired;
 
 
@@ -49,6 +47,7 @@ import java.net.URLConnection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static io.jmix.flowui.app.inputdialog.InputParameter.stringParameter;
 
@@ -85,8 +84,19 @@ public class MinioView extends StandardView {
 
     @ViewComponent("fileUpload")
     private Upload fileUpload;
+    @ViewComponent("folderUpload")
+    private Upload folderUpload;
+    @Autowired
+    private MinioClient minioClient;
+
+    private final Set<String> createdFolders = ConcurrentHashMap.newKeySet(); // tránh tạo trùng folder
+    private TempFileReceiver folderReceiver;
+
+
 
     private MultiFileMemoryBuffer fileBuffer;
+    //private MultiFileMemoryBuffer folderBuffer;
+
     @Autowired
     private Dialogs dialogs;
     @Autowired
@@ -127,6 +137,303 @@ public class MinioView extends StandardView {
             fileBuffer = new MultiFileMemoryBuffer();
             fileUpload.setReceiver(fileBuffer);
         });
+
+
+
+        folderReceiver = new TempFileReceiver();
+        folderUpload.setReceiver(folderReceiver);
+        folderUpload.setAutoUpload(true);
+        folderUpload.setDropAllowed(true);
+        folderUpload.setMaxFiles(50_000);
+
+        // Cho phép chọn thư mục
+        folderUpload.getElement().setProperty("directory", true);
+        folderUpload.getElement().setProperty("webkitdirectory", true);
+
+        // Ép attribute vào <input type="file"> thật để browser gửi webkitRelativePath
+        folderUpload.getElement().addAttachListener(e2 -> {
+            folderUpload.getElement().executeJs(
+                    "const root = this.shadowRoot || this;" +
+                            "const inp = root && root.querySelector('input[type=file]');" +
+                            "if (inp) { inp.setAttribute('webkitdirectory',''); inp.setAttribute('directory',''); inp.setAttribute('multiple',''); }"
+            );
+        });
+
+        // PHASE 1: Thu thập metadata (relativePath) + KEY duy nhất trước khi upload từng file
+        folderUpload.getElement()
+                .addEventListener("upload-before", ev -> {
+                    String name = safeGet(ev, "event.detail.file.name");
+                    String rel  = safeGet(ev, "event.detail.file.webkitRelativePath");
+                    if (rel == null || rel.isBlank())
+                        rel = safeGet(ev, "event.detail.file.relativePath");
+                    String type = safeGet(ev, "event.detail.file.type"); // <-- lấy mime type từ browser (nếu có)
+
+                    if (name == null) return;
+                    String normalized = (rel == null || rel.isBlank() ? name : rel).replace("\\", "/");
+                    folderReceiver.enqueueExpected(name, normalized, type); // <-- API mới
+                })
+                .addEventData("event.detail.file.name")
+                .addEventData("event.detail.file.webkitRelativePath")
+                .addEventData("event.detail.file.relativePath")
+                .addEventData("event.detail.file.type");
+
+// Dự phòng: nếu vì lý do nào đó thiếu metadata ở upload-before
+        folderUpload.getElement()
+                .addEventListener("upload-success", ev -> {
+                    String name = safeGet(ev, "event.detail.file.name");
+                    if (name == null) return;
+                    if (!folderReceiver.hasExpectedFor(name)) {
+                        String rel = safeGet(ev, "event.detail.file.webkitRelativePath");
+                        if (rel == null || rel.isBlank())
+                            rel = safeGet(ev, "event.detail.file.relativePath");
+                        String type = safeGet(ev, "event.detail.file.type");
+                        String normalized = (rel == null || rel.isBlank() ? name : rel).replace("\\", "/");
+                        folderReceiver.enqueueExpected(name, normalized, type); // <-- API mới
+                    }
+                })
+                .addEventData("event.detail.file.name")
+                .addEventData("event.detail.file.webkitRelativePath")
+                .addEventData("event.detail.file.relativePath")
+                .addEventData("event.detail.file.type");
+
+        // PHASE 2: Khi mọi file đã nhận xong → tạo toàn bộ folder rồi upload file theo relPath
+        folderUpload.addAllFinishedListener(e -> {
+            if (currentBucket == null || currentBucket.isBlank()) {
+                Notification.show("Chưa chọn bucket");
+                folderReceiver.clear();
+                return;
+            }
+            try {
+                commitFolderUpload(); // tạo folder (prefix kết thúc "/") rồi upload từng file
+                Notification.show("Upload folder hoàn tất");
+                refreshFiles();
+                folderReceiver.clear();
+            } finally {
+                createdFolders.clear();
+                folderReceiver.clear();
+            }
+        });
+    }
+    // ==== Helper đọc event data an toàn ====
+    private static String safeGet(com.vaadin.flow.dom.DomEvent e, String key) {
+        try { return e.getEventData().getString(key); } catch (Exception ignore) { return null; }
+    }
+
+    // ==== Tạo folder rỗng (0-byte, đánh dấu folder bằng content-type) ====
+    private void createEmptyFolder(String folderPath) {
+        try (InputStream in = InputStream.nullInputStream()) {
+            minioClient.putObject(
+                    io.minio.PutObjectArgs.builder()
+                            .bucket(currentBucket)
+                            .object(folderPath.endsWith("/") ? folderPath : folderPath + "/")
+                            .stream(in, 0, -1)
+                            .contentType("application/x-directory")
+                            .build()
+            );
+        } catch (Exception e) {
+            Notification.show("Không tạo được thư mục: " + e.getMessage());
+        }
+    }
+
+    // ==== Commit: tạo tất cả folder trước, rồi upload từng file ====
+    private void commitFolderUpload() {
+        java.util.List<TempEntry> entries = folderReceiver.entries();
+
+        // Suy ra tất cả thư mục từ relPath của file (vd "a/b/c.txt" -> "a/", "a/b/")
+        java.util.Set<String> folders = new java.util.TreeSet<>(
+                java.util.Comparator.comparingInt((String s) -> s.split("/").length).thenComparing(s -> s)
+        );
+        for (TempEntry e : entries) {
+            String rel = e.relPath();
+            if (rel == null) continue;
+            int idx = rel.lastIndexOf('/');
+            if (idx < 0) continue;
+            String[] parts = rel.split("/");
+            StringBuilder b = new StringBuilder();
+            for (int i = 0; i < parts.length - 1; i++) {
+                if (i > 0) b.append("/");
+                b.append(parts[i]);
+                folders.add(b + "/");
+            }
+        }
+
+        // Tạo folder từ nông -> sâu
+        for (String f : folders) {
+            String fullKey = withCurrentPrefix(f);
+            if (createdFolders.add(fullKey)) {
+                createEmptyFolder(fullKey);
+            }
+        }
+
+        // Upload file theo đúng relPath
+        for (TempEntry e : entries) {
+            java.io.File tmp = e.file();
+            if (tmp == null || !tmp.exists()) continue;
+
+            String objectKey = withCurrentPrefix(e.relPath());
+            String contentType = e.contentType();
+            if (contentType == null || contentType.isBlank()) {
+                contentType = URLConnection.guessContentTypeFromName(e.originalName());
+                if (contentType == null) contentType = "application/octet-stream";
+            }
+
+            try (java.io.InputStream in = new java.io.FileInputStream(tmp)) {
+                long size = tmp.length();
+                minioClient.putObject(
+                        io.minio.PutObjectArgs.builder()
+                                .bucket(currentBucket)
+                                .object(objectKey)
+                                .stream(in, size, -1)
+                                .contentType(contentType)
+                                .build()
+                );
+            } catch (Exception ex) {
+                Notification.show("Lỗi upload: " + e.relPath() + " - " + ex.getMessage());
+            }
+        }
+    }
+
+    // ==== Entry metadata dùng cho commit ====
+    private static class TempEntry {
+        private final String key;
+        private final String originalName;
+        private final String relPath;
+        private final String contentType;
+        private final java.io.File file;
+
+        TempEntry(String key, String originalName, String relPath, String contentType, java.io.File file) {
+            this.key = key; this.originalName = originalName; this.relPath = relPath; this.contentType = contentType; this.file = file;
+        }
+        String key() { return key; }
+        String originalName() { return originalName; }
+        String relPath() { return relPath; }
+        String contentType() { return contentType; }
+        java.io.File file() { return file; }
+    }
+
+    // ==== Receiver ghi file tạm + giữ relPath (KEY duy nhất / file) ====
+    // ==== Receiver ghi file tạm + GHÉP CẶP 2 CHIỀU ====
+    private static class TempFileReceiver implements com.vaadin.flow.component.upload.Receiver {
+        // Hàng đợi METADATA mong đợi (từ upload-before): filename -> queue(RelMeta)
+        private final java.util.concurrent.ConcurrentHashMap<String, java.util.Queue<RelMeta>> expectedByName =
+                new java.util.concurrent.ConcurrentHashMap<>();
+
+        // Hàng đợi KEY đã nhận stream (từ receiveUpload): filename -> queue<key>
+        private final java.util.concurrent.ConcurrentHashMap<String, java.util.Queue<String>> receivedKeysByName =
+                new java.util.concurrent.ConcurrentHashMap<>();
+
+        // Bản đồ theo KEY
+        private final java.util.concurrent.ConcurrentHashMap<String, java.io.File> fileByKey =
+                new java.util.concurrent.ConcurrentHashMap<>();
+        private final java.util.concurrent.ConcurrentHashMap<String, String> relByKey =
+                new java.util.concurrent.ConcurrentHashMap<>();
+        private final java.util.concurrent.ConcurrentHashMap<String, String> nameByKey =
+                new java.util.concurrent.ConcurrentHashMap<>();
+        private final java.util.concurrent.ConcurrentHashMap<String, String> typeByKey =
+                new java.util.concurrent.ConcurrentHashMap<>();
+
+        // metadata “thô” từ browser
+        private static final class RelMeta {
+            final String rel;
+            final String type;
+            RelMeta(String rel, String type) { this.rel = rel; this.type = type; }
+        }
+
+        // ------ API từ upload-before / upload-success ------
+        void enqueueExpected(String filename, String relPath, String mimeFromBrowser) {
+            expectedByName
+                    .computeIfAbsent(filename, k -> new java.util.concurrent.ConcurrentLinkedQueue<>())
+                    .add(new RelMeta(relPath, mimeFromBrowser));
+            tryMatch(filename);
+        }
+        boolean hasExpectedFor(String filename) {
+            java.util.Queue<RelMeta> q = expectedByName.get(filename);
+            return q != null && !q.isEmpty();
+        }
+
+        // ------ Receiver: tạo KEY + file tạm ------
+        @Override
+        public java.io.OutputStream receiveUpload(String filename, String mimeType) {
+            String key = "k" + System.nanoTime();
+            nameByKey.put(key, filename);
+            if (mimeType != null && !mimeType.isBlank()) typeByKey.put(key, mimeType);
+
+            try {
+                java.io.File tmp = java.io.File.createTempFile("minio_up_", "_" + java.util.UUID.randomUUID() + "_" + filename);
+                fileByKey.put(key, tmp);
+
+                // xếp KEY vào hàng đợi “đã nhận” theo filename, rồi cố gắng ghép ngay
+                receivedKeysByName
+                        .computeIfAbsent(filename, k -> new java.util.concurrent.ConcurrentLinkedQueue<>())
+                        .add(key);
+                tryMatch(filename);
+
+                return new java.io.FileOutputStream(tmp);
+            } catch (java.io.IOException e) {
+                throw new RuntimeException("Cannot create temp file", e);
+            }
+        }
+
+        // ------ Ghép cặp: lấy 1 metadata + 1 key theo cùng filename ------
+        private void tryMatch(String filename) {
+            java.util.Queue<RelMeta> metas = expectedByName.get(filename);
+            java.util.Queue<String> keys  = receivedKeysByName.get(filename);
+            if (metas == null || keys == null) return;
+
+            RelMeta m;
+            String key;
+            // ghép được bao nhiêu ghép bấy nhiêu (xử lý mọi pattern race)
+            while ((m = metas.peek()) != null && (key = keys.peek()) != null) {
+                metas.poll();
+                keys.poll();
+                relByKey.put(key, m.rel);
+                // nếu Receiver chưa có mimeType (server), dùng type từ browser
+                typeByKey.putIfAbsent(key, m.type);
+            }
+        }
+
+        // ------ Xuất danh sách entry đã match (có file + rel) ------
+        java.util.List<TempEntry> entries() {
+            java.util.ArrayList<TempEntry> out = new java.util.ArrayList<>();
+            for (var key : fileByKey.keySet()) {
+                java.io.File f = fileByKey.get(key);
+                String rel = relByKey.get(key);
+                if (f != null && f.exists() && rel != null) {
+                    out.add(new TempEntry(
+                            key,
+                            nameByKey.get(key),
+                            rel,
+                            typeByKey.get(key),
+                            f
+                    ));
+                }
+            }
+            return out;
+        }
+
+        // ------ Dọn dẹp ------
+        void clear() {
+            for (java.io.File f : fileByKey.values()) {
+                try { if (f != null) f.delete(); } catch (Exception ignore) {}
+            }
+            expectedByName.clear();
+            receivedKeysByName.clear();
+            fileByKey.clear();
+            relByKey.clear();
+            nameByKey.clear();
+            typeByKey.clear();
+        }
+    }
+
+
+
+
+
+
+    //dong
+    private String withCurrentPrefix(String rel) {
+        if (currentPrefix == null || currentPrefix.isBlank()) return rel;
+        return currentPrefix.endsWith("/") ? currentPrefix + rel : currentPrefix + "/" + rel;
     }
 
     private static String buildObjectKey(String prefix, String fileName) {
@@ -282,9 +589,8 @@ public class MinioView extends StandardView {
         dlg.addConfirmListener(e2 -> {
                     try {
                         fileService.delete(currentBucket, object.getKey());
-                        Notification.show("Đã xóa bucket: " + object.getName());
-                        loadAllBuckets();
-                        loadObjectFromBucket();
+                        Notification.show("Đã xóa file: " + object.getName());
+                        refreshFiles();
                     } catch (Exception ex) {
                         toastErr("Không thể xóa bucket (có thể bucket chưa rỗng).", ex);
                     }
@@ -553,4 +859,7 @@ public class MinioView extends StandardView {
     @Subscribe("objects")
     public void onObjectsItemClick(final ItemClickEvent<ObjectDto> event) {
     }
+
+
+
 }
