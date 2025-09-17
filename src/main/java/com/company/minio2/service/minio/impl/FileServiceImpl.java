@@ -14,15 +14,18 @@ import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 
 @Service
 public class FileServiceImpl implements IFileService {
     private final MinioClient minioClient;
     private final MinioStorageProperties properties;
-    private static final String HIDDEN_MARKER = ".keep";
+    private static final String HIDDEN_MARKER = ".keepdonglv";
 
 
     public FileServiceImpl(MinioClient minioClient, MinioStorageProperties properties) {
@@ -249,18 +252,30 @@ public class FileServiceImpl implements IFileService {
     @Override
     public String download(String bucket, String objectKey, int expirySeconds) {
         try {
+
+            String encoded = URLEncoder.encode(objectKey, java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            String contentDisposition = "attachment; filename=\""
+                    + objectKey.replace("\"", "")
+                    + "\"; filename*=UTF-8''" + encoded;
+
+            Map<String, String> qp = new HashMap<>();
+            qp.put("response-content-disposition", contentDisposition);
+            qp.put("response-content-type", "application/octet-stream");
             return minioClient.getPresignedObjectUrl(
-                    GetPresignedObjectUrlArgs.builder()
-                            .method(Method.GET)
+                    io.minio.GetPresignedObjectUrlArgs.builder()
+                            .method(io.minio.http.Method.GET)
                             .bucket(bucket)
                             .object(objectKey)
                             .expiry(expirySeconds > 0 ? expirySeconds : properties.presignExpirySeconds())
+                            .extraQueryParams(qp)
                             .build()
             );
         } catch (Exception e) {
             throw new MinioException("Presigned GET failed: " + objectKey + " in bucket=" + bucket, e);
         }
     }
+
     // tạo new folder
     @Override
     public void createNewObject(String bucket, String parentPrefix, String objectKey) {
