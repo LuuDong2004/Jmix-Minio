@@ -642,7 +642,6 @@ public class MinioView extends StandardView {
     @Subscribe("objects.assignPermission")
     public void onObjectsAssignPermission(final ActionPerformedEvent event) {
         ObjectDto selected = objects.getSingleSelectedItem();
-        List<User> userList = dataManager.load(User.class).all().list();
         DialogWindow<AssignPermissionDialog> window = dialogWindows.view(this, AssignPermissionDialog.class).build();
         window.getView().setFilePath(currentBucket + "/" + selected.getKey());
         window.open();

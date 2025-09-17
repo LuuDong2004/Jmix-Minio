@@ -80,7 +80,7 @@ public class UserListDialog extends StandardView {
                     });
                     return checkbox;
                 })
-        ).setHeader("Tick");
+        ).setHeader("Add");
     }
 
     @Subscribe("usersBtn")

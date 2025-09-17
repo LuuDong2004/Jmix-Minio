@@ -64,6 +64,10 @@
                         <column property="lastModified" header="Date"/>
                     </columns>
                 </dataGrid>
+
+                <twinColumn>
+
+                </twinColumn>
             </vbox>
         </split>
     </layout>

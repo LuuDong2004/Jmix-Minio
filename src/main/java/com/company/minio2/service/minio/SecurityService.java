@@ -168,45 +168,55 @@ public class SecurityService {
         return prefix.endsWith("/") ? prefix : prefix + "/";
     }
 
-    // kế thừa từ cha
+    // kế thừa từ cha (có xử lý Deny override Allow)
     private void propagateToChildren(User user, ResourceRoleEntity role, String bucketName, String parentPath, int parentMask) {
         String normalizedParent = normalizePrefix(parentPath);
         List<ObjectDto> children = fileService.listLevel(bucketName, normalizedParent);
-
         for (ObjectDto child : children) {
             String childKey = child.getKey();
             String childFullPath = bucketName + "/" + childKey;
-
             Permission perm;
             if (user != null) {
                 perm = loadPermission(user, childFullPath);
-                int current = (perm == null || perm.getPermissionMask() == null) ? 0 : perm.getPermissionMask();
-                int newMask = current | parentMask; // merge: con giữ quyền cũ + được cộng quyền cha
-                if (perm == null) {
-                    perm = dataManager.create(Permission.class);
-                    perm.setUser(user);
-                    perm.setFilePath(childFullPath);
-                }
-                perm.setPermissionMask(newMask);
             } else {
                 perm = loadPermission(role, childFullPath);
-                int current = (perm == null || perm.getPermissionMask() == null) ? 0 : perm.getPermissionMask();
-                int newMask = current | parentMask;
-
-                if (perm == null) {
-                    perm = dataManager.create(Permission.class);
-                    perm.setRoleCode(role.getCode());
-                    perm.setFilePath(childFullPath);
-                }
-                perm.setPermissionMask(newMask);
             }
-
+            int currentMask = (perm == null || perm.getPermissionMask() == null) ? 0 : perm.getPermissionMask();
+            int newMask = currentMask;
+            // Nếu cha FULL → override hoàn toàn
+            if ((parentMask & PermissionType.FULL.getValue()) == PermissionType.FULL.getValue()) {
+                newMask = PermissionType.FULL.getValue();
+            } else {
+                // Với từng quyền READ / CREATE / MODIFY
+                for (PermissionType pt : PermissionType.values()) {
+                    if (pt == PermissionType.FULL) continue; // FULL xử lý riêng ở trên
+                    int bit = pt.getValue();
+                    if ((parentMask & bit) == bit) {
+                        // Cha Allow → thêm quyền vào con
+                        newMask |= bit;
+                    } else {
+                        // Cha Deny → xóa quyền ở con
+                        newMask &= ~bit;
+                    }
+                }
+            }
+            if (perm == null) {
+                perm = dataManager.create(Permission.class);
+                if (user != null) {
+                    perm.setUser(user);
+                } else {
+                    perm.setRoleCode(role.getCode());
+                }
+                perm.setFilePath(childFullPath);
+            }
+            perm.setPermissionMask(newMask);
             dataManager.save(perm);
-            // nếu là folder thì đệ quy (pass prefix trong bucket)
+            // nếu là folder thì đệ quy
             if (child.getType() == TreeNode.FOLDER) {
                 String childPrefix = normalizePrefix(childKey);
                 propagateToChildren(user, role, bucketName, childPrefix, parentMask);
             }
         }
     }
+
 }
