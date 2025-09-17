@@ -1,7 +1,6 @@
 package com.company.minio2.service.minio.impl;
 
 import com.company.minio2.config.MinioStorageProperties;
-import com.company.minio2.dto.DownloadDTO;
 import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
