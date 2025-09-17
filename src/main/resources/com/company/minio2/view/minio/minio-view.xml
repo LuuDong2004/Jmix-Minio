@@ -55,7 +55,7 @@
                         <column property="lastModified" header="Date"/>
                     </columns>
                     <actions>
-                        <action id="create" text="New folder" />
+                        <action id="create" text="New Folder" />
                         <action id="delete" text="Delete" />
                         <action id="download" text="Download" />
                         <action id="upload" text="Upload file"/>

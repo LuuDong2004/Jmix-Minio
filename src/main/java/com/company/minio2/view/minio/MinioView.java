@@ -560,6 +560,7 @@ public class MinioView extends StandardView {
     public void onObjectsItemClick(final ItemClickEvent<ObjectDto> event) {
 
     }
+
     //xử lý menu tạo
     @Subscribe("objects.create")
     public void onObjectsCreate(final ActionPerformedEvent event) {
@@ -613,6 +614,7 @@ public class MinioView extends StandardView {
                 fileService.delete(currentBucket, object.getKey());
                 Notification.show("Đã xóa file: " + object.getName());
                 refreshFiles();
+                refreshBuckets();
             } catch (Exception ex) {
                 toastErr("Không thể xóa bucket (có thể bucket chưa rỗng).", ex);
             }
@@ -669,7 +671,6 @@ public class MinioView extends StandardView {
                 })
                 .open();
     }
-
     @Subscribe("buckets.delete")
     public void onBucketsDelete(final ActionPerformedEvent event) {
         try {
@@ -688,14 +689,10 @@ public class MinioView extends StandardView {
                 dlg.setConfirmText("Xóa");
                 dlg.addConfirmListener(e2 -> {
                     try {
-                        bucketService.removeBucket(selected.getBucketName());
-                        Notification.show("Đã xóa bucket: " + selected.getBucketName());
-
-                        if (selected.getBucketName() != null && selected.getBucketName().equals(currentBucket)) {
-                            updateState(null, "");
-                            filesDc.setItems(List.of());
-                        }
-                        loadAllBuckets();
+                        bucketService.removeBucket(currentBucket);
+                        Notification.show("Đã xóa bucket: " + currentBucket);
+                        refreshBuckets();
+                        refreshFiles();
                     } catch (Exception ex) {
                         toastErr("Không thể xóa bucket (có thể bucket chưa rỗng).", ex);
                     }
@@ -703,26 +700,17 @@ public class MinioView extends StandardView {
                 dlg.open();
 
             } else if (TreeNode.FOLDER.equals(selected.getType())) {
-                final String bucket = selected.getBucketName();
-                String folderPrefix = selected.getPath();
-                if (folderPrefix == null) folderPrefix = "";
-                if (!folderPrefix.isEmpty() && !folderPrefix.endsWith("/")) folderPrefix = folderPrefix + "/";
-
                 ConfirmDialog dlg = new ConfirmDialog();
                 dlg.setHeader("Xác nhận");
-                dlg.setText("Xóa FOLDER '" + folderPrefix + "' và toàn bộ bên trong?");
+                dlg.setText("Xóa FOLDER '" + currentPrefix + "' và toàn bộ bên trong?");
                 dlg.setCancelable(true);
                 dlg.setConfirmText("Xóa");
-                final String finalFolderPrefix = folderPrefix;
                 dlg.addConfirmListener(e2 -> {
                     try {
-                        fileService.delete(bucket, finalFolderPrefix);
-                        Notification.show("Đã xóa folder: " + finalFolderPrefix);
-
-                        if (bucket != null && bucket.equals(currentBucket)) {
-                            filesDc.setItems(fileService.getAllFromBucket(currentBucket, currentPrefix));
-                        }
-                        loadAllBuckets();
+                        fileService.delete(currentBucket, currentPrefix);
+                        Notification.show("Đã xóa folder: " + currentPrefix);
+                        refreshBuckets();
+                        refreshFiles();
                     } catch (Exception ex) {
                         toastErr("Không thể xóa folder", ex);
                     }
