@@ -24,6 +24,10 @@
                               dataContainer="bucketsDc"
                               hierarchyProperty="parent"
                               width="100%" height="100%">
+                    <actions>
+                        <action id="create" text="New Bucket" />
+                        <action id="delete" text="Delete" />
+                    </actions>
                 </treeDataGrid>
             </vbox>
 
@@ -33,7 +37,6 @@
                     <textField id="prefixField" placeholder="Search file.."/>
                     <button id="searchBtn" text="Search" classNames="btn-search"/>
                     <upload id="fileUpload"/>
-                    <upload id="folderUpload"/>
                     <button id="newBtn" text="New" classNames="btn-new"/>
                     <button id="downloadBtn" text="Download" classNames="btn-download"/>
                     <button id="deleteBtn" text="Delete" classNames="btn-delete" themeNames="error"/>
@@ -43,13 +46,21 @@
                 <hbox id="multiUploadBox" spacing="true" alignItems="CENTER"/>
                 <dataGrid id="objects"
                           dataContainer="filesDc"
-                          width="100%" height="100%">
+                          width="100%" height="100%"
+                          selectionMode="SINGLE">
                     <columns>
                         <column property="name"          header="Name"/>
                         <column property="size"         header="Size"/>
                         <column property="type"         header="Type"/>
                         <column property="lastModified" header="Date"/>
                     </columns>
+                    <actions>
+                        <action id="create" text="New folder" />
+                        <action id="delete" text="Delete" />
+                        <action id="download" text="Download" />
+                        <action id="upload" text="Upload file"/>
+                    </actions>
+
                 </dataGrid>
             </vbox>
         </split>
