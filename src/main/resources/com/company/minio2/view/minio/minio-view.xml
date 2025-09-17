@@ -25,11 +25,10 @@
                               hierarchyProperty="parent"
                               width="100%" height="100%">
                     <actions>
-                        <action id="createFolder" type="list_create" />
-                        <action id="renameFolder" type="list_edit"/>
-                        <action id="deleteFolder" type="list_remove"/>
-                        <action id="assignPermission" text="Assign Permission">
-                        </action>
+                        <action id="createFolder" text="New Folder"/>
+                        <action id="create" text="New Bucket" />
+                        <action id="delete" text="Delete" />
+                        <action id="assignPermission" text="Assign Permission"/>
                     </actions>
 
                 </treeDataGrid>
@@ -51,23 +50,22 @@
                 <dataGrid id="objects"
                           dataContainer="filesDc"
                           width="100%" height="100%">
-                    <actions>
-                        <action id="openFile" type="datatl_showEntityInfo"/>
-                        <action id="renameFile" type="list_edit"/>
-                        <action id="deleteFile" type="list_remove"/>
-                        <action id="assignPermission" text="Assign Permission"/>
-                    </actions>
                     <columns>
                         <column property="name" header="Name"/>
                         <column property="size" header="Size"/>
                         <column property="type" header="Type"/>
                         <column property="lastModified" header="Date"/>
                     </columns>
+
+                    <actions>
+                        <action id="create" text="New Folder" />
+                        <action id="delete" text="Delete" />
+                        <action id="download" text="Download" />
+                        <action id="upload" text="Upload file"/>
+                        <action id="assignPermission" text="Assign Permission"/>
+                    </actions>
+
                 </dataGrid>
-
-                <twinColumn>
-
-                </twinColumn>
             </vbox>
         </split>
     </layout>

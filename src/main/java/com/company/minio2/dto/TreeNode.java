@@ -24,7 +24,6 @@ public enum TreeNode implements EnumClass<String> {
         }
         return null;
     }
-
     @Override
     public String toString() {
         switch (this) {
