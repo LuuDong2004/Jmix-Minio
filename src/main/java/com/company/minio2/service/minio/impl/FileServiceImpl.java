@@ -1,29 +1,32 @@
+
 package com.company.minio2.service.minio.impl;
 
 import com.company.minio2.config.MinioStorageProperties;
-import com.company.minio2.dto.DownloadDTO;
 import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
 import com.company.minio2.service.minio.IFileService;
 import io.minio.*;
 import io.minio.http.Method;
+import io.minio.messages.DeleteError;
 import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
-import jakarta.validation.constraints.Min;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.function.Supplier;
+import java.util.Map;
 
 
 @Service
 public class FileServiceImpl implements IFileService {
     private final MinioClient minioClient;
     private final MinioStorageProperties properties;
+    private static final String HIDDEN_MARKER = ".keepdonglv";
 
 
     public FileServiceImpl(MinioClient minioClient, MinioStorageProperties properties) {
@@ -48,6 +51,7 @@ public class FileServiceImpl implements IFileService {
                 Item it = r.get();
                 String key = it.objectName();
                 if (key == null || key.isBlank()) continue;
+                if (isHiddenMarker(key)) continue;
                 ObjectDto file = new ObjectDto();
                 file.setKey(key);
                 file.setName(extractDisplayName(p, key));
@@ -64,6 +68,7 @@ public class FileServiceImpl implements IFileService {
 
     @Override
     public List<ObjectDto> openFolder(String bucket, String prefix) {
+
         return listLevel(bucket, prefix);
     }
 
@@ -80,12 +85,12 @@ public class FileServiceImpl implements IFileService {
                             .build()
             );
 
-            List<ObjectDto> out = new ArrayList<>();
+            List<ObjectDto> object = new ArrayList<>();
             for (Result<Item> r : items) {
                 Item it = r.get();
                 String key = it.objectName();
                 if (key == null || key.isBlank()) continue;
-
+                if (isHiddenMarker(key)) continue;
                 ObjectDto dto = new ObjectDto();
                 dto.setKey(key);
                 dto.setName(extractDisplayName(p, key));
@@ -96,24 +101,21 @@ public class FileServiceImpl implements IFileService {
                                 ? null
                                 : it.lastModified().toLocalDateTime()
                 );
-                out.add(dto);
+                object.add(dto);
             }
-            return out;
+            return object;
         } catch (Exception e) {
             throw new MinioException("List level thất bại (bucket=" + bucket + ", prefix=" + p + ")", e);
         }
     }
-
     @Override
     public void delete(String bucket, String objectKey) {
         try {
             if (objectKey.endsWith("/")) {
+                // 1) Thu thập toàn bộ object dưới prefix (folder)
                 Iterable<Result<Item>> it = minioClient.listObjects(
                         ListObjectsArgs.builder()
-                                .bucket(bucket)
-                                .prefix(objectKey)
-                                .recursive(true)
-                                .build()
+                                .bucket(bucket).prefix(objectKey).recursive(true).build()
                 );
 
                 List<DeleteObject> batch = new ArrayList<>();
@@ -123,8 +125,26 @@ public class FileServiceImpl implements IFileService {
                         batch.add(new DeleteObject(item.objectName()));
                     }
                 }
+                // Nếu bạn có tạo "folder marker" (objectKey kết thúc bằng "/")
                 batch.add(new DeleteObject(objectKey));
+
+                // 2) GỌI removeObjects để thực thi xóa
+                Iterable<Result<DeleteError>> results = minioClient.removeObjects(
+                        RemoveObjectsArgs.builder()
+                                .bucket(bucket)
+                                .objects(batch)
+                                .build()
+                );
+                // 3) Nếu có lỗi ở bất kỳ object nào -> ném exception để UI báo thất bại
+                for (Result<DeleteError> r : results) {
+                    DeleteError err = r.get();
+                    throw new Exception("Xóa thất bại: " + err.objectName() + " - " + err.message());
+                }
             } else {
+                if (isHiddenMarker(objectKey)) {
+                    throw new Exception("Đây là file hệ thống và được ẩn.");
+                }
+
                 minioClient.removeObject(
                         RemoveObjectArgs.builder()
                                 .bucket(bucket)
@@ -136,8 +156,6 @@ public class FileServiceImpl implements IFileService {
             throw new MinioException("Service không thể xóa!", e);
         }
     }
-
-
     @Override
     public List<ObjectDto> back(String bucket, String currentPrefix) {
         String parent = parentPrefix(currentPrefix);
@@ -166,25 +184,6 @@ public class FileServiceImpl implements IFileService {
             throw new MinioException("(Service)Tải file: " + objectKey + " lên bucket " + bucket, e);
         }
     }
-
-    @Override
-    public void createNewObject(String bucket, String prefix, String objectKey) {
-        String normPrefix = normalizePrefix(objectKey);
-        String folderName = (prefix + normPrefix + "/");
-        try (ByteArrayInputStream bais = new ByteArrayInputStream(new byte[0])) {
-            PutObjectArgs args = PutObjectArgs.builder()
-                    .bucket(bucket)
-                    .object(folderName)
-                    .stream(bais, 0, -1)
-                    .contentType("application/x-directory")
-                    .build();
-            minioClient.putObject(args);
-        } catch (Exception e) {
-            throw new MinioException("Không thể tạo folder '" + folderName + "' trong bucket " + bucket, e);
-        }
-    }
-
-
     @Override
     public String parentPrefix(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";
@@ -192,7 +191,6 @@ public class FileServiceImpl implements IFileService {
         int idx = p.lastIndexOf('/');
         return (idx >= 0) ? p.substring(0, idx + 1) : "";
     }
-
     //chuẩn hóa
     private static String normalizePrefix(String prefix) {
         if (prefix == null || prefix.isBlank()) return "";
@@ -255,12 +253,23 @@ public class FileServiceImpl implements IFileService {
     @Override
     public String download(String bucket, String objectKey, int expirySeconds) {
         try {
+
+            String encoded = URLEncoder.encode(objectKey, java.nio.charset.StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+            String contentDisposition = "attachment; filename=\""
+                    + objectKey.replace("\"", "")
+                    + "\"; filename*=UTF-8''" + encoded;
+
+            Map<String, String> qp = new HashMap<>();
+            qp.put("response-content-disposition", contentDisposition);
+            qp.put("response-content-type", "application/octet-stream");
             return minioClient.getPresignedObjectUrl(
-                    GetPresignedObjectUrlArgs.builder()
-                            .method(Method.GET)
+                    io.minio.GetPresignedObjectUrlArgs.builder()
+                            .method(io.minio.http.Method.GET)
                             .bucket(bucket)
                             .object(objectKey)
                             .expiry(expirySeconds > 0 ? expirySeconds : properties.presignExpirySeconds())
+                            .extraQueryParams(qp)
                             .build()
             );
         } catch (Exception e) {
@@ -268,5 +277,34 @@ public class FileServiceImpl implements IFileService {
         }
     }
 
+    // tạo new folder
+    @Override
+    public void createNewObject(String bucket, String parentPrefix, String objectKey) {
+        String p = normalizePrefix(parentPrefix);         // "" hoặc "a/b/"
+        String name = stripSlashes(objectKey);            // "New Folder"
+        String folderPrefix = p + name + "/";             // "a/b/New Folder/"
+        String markerKey = folderPrefix + HIDDEN_MARKER;
 
+        try (ByteArrayInputStream in = new ByteArrayInputStream(new byte[0])) {
+            minioClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(markerKey)
+                            .stream(in, 0, -1)
+                            .contentType("application/octet-stream") // hoặc bỏ cũng được
+                            .build()
+            );
+        } catch (Exception e) {
+            throw new MinioException("Không thể tạo folder '" + markerKey + "' trong bucket " + bucket, e);
+        }
+    }
+
+    // đánh dấu ẩn file
+    private static boolean isHiddenMarker(String key) {
+        return key != null && key.endsWith("/" + HIDDEN_MARKER);
+    }
+
+    private static String stripSlashes(String s) {
+        return s == null ? "" : s.replaceAll("^/+", "").replaceAll("/+$", "");
+    }
 }

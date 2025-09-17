@@ -15,18 +15,14 @@
                     <button id="createBucketBtn"
                             text="New"
                             classNames="new-bucket-btn"/>
-                    <button id="deleteBucketBtn"
-                            text="Delete"
-                            classNames="btn-delete"
-                            themeNames="error"/>
                 </hbox>
                 <treeDataGrid id="buckets"
                               dataContainer="bucketsDc"
                               hierarchyProperty="parent"
                               width="100%" height="100%">
                     <actions>
-                        <action id="createFolder" text="New Folder"/>
                         <action id="create" text="New Bucket" />
+                        <action id="createFolder" text="New Folder"/>
                         <action id="delete" text="Delete" />
                         <action id="assignPermission" text="Assign Permission"/>
                     </actions>
@@ -40,9 +36,9 @@
                     <textField id="prefixField" placeholder="Search file.."/>
                     <button id="searchBtn" text="Search" classNames="btn-search"/>
                     <upload id="fileUpload"/>
-                    <button id="newBtn" text="New" classNames="btn-new"/>
-                    <button id="downloadBtn" text="Download" classNames="btn-download"/>
-                    <button id="deleteBtn" text="Delete" classNames="btn-delete" themeNames="error"/>
+<!--                    <button id="newBtn" text="New" classNames="btn-new"/>-->
+<!--                    <button id="downloadBtn" text="Download" classNames="btn-download"/>-->
+<!--                    <button id="deleteBtn" text="Delete" classNames="btn-delete" themeNames="error"/>-->
 <!--                    <button id="detailBtn" text="Detail"/>-->
                     <button id="backBtn" text="Back"/>
                 </hbox>
