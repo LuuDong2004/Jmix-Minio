@@ -37,6 +37,7 @@
                         <textField id="prefixField" placeholder="Search file.."/>
                         <button id="searchBtn" text="Search" classNames="btn-search"/>
                         <upload id="fileUpload"/>
+                        <comboBox id="viewMode" placeholder="View"/>
                         <button id="backBtn" text="Back"/>
                     </hbox>
                     <hbox id="multiUploadBox" spacing="true" alignItems="CENTER"/>
@@ -57,6 +58,7 @@
                             <action id="upload" text="Upload file"/>
                         </actions>
                     </dataGrid>
+                    <hbox id="iconContainer" width="100%" height="100%"/>
                 </vbox>
                 
                 <!-- METADATA SECTION -->

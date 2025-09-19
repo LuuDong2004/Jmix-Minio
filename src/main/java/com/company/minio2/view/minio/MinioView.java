@@ -10,6 +10,7 @@ import com.company.minio2.view.main.MainView;
 
 import com.vaadin.flow.component.ClickEvent;
 import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.combobox.ComboBox;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.grid.ItemClickEvent;
 import com.vaadin.flow.component.grid.ItemDoubleClickEvent;
@@ -22,6 +23,7 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.component.contextmenu.ContextMenu;
 
 import io.jmix.flowui.Dialogs;
 import io.jmix.flowui.Notifications;
@@ -114,6 +116,17 @@ public class MinioView extends StandardView {
     private Dialogs dialogs;
     @Autowired
     private Notifications notifications;
+
+    @ViewComponent("viewMode")
+    private ComboBox<String> viewMode;
+
+    private enum ViewMode { DETAILS, LIST, MEDIUM_ICONS, LARGE_ICONS }
+    private ViewMode currentViewMode = ViewMode.DETAILS;
+
+    private DataGrid.Column<ObjectDto> nameComponentColumn;
+    @ViewComponent("iconContainer")
+    private HorizontalLayout iconContainer;
+    private String selectedIconItemId;
     @Subscribe
     public void onInit(InitEvent event) {
         loadAllBuckets();
@@ -156,6 +169,31 @@ public class MinioView extends StandardView {
             fileBuffer = new MultiFileMemoryBuffer();
             fileUpload.setReceiver(fileBuffer);
         });
+
+        // init view mode selector
+        if (viewMode != null) {
+            viewMode.setItems("DETAILS", "LIST", "MEDIUM_ICONS", "LARGE_ICONS");
+            if (viewMode.getValue() == null) {
+                viewMode.setValue("DETAILS");
+            } else {
+                try {
+                    currentViewMode = ViewMode.valueOf(viewMode.getValue());
+                } catch (Exception ignore) {
+                    currentViewMode = ViewMode.DETAILS;
+                }
+            }
+            viewMode.addValueChangeListener(e -> {
+                String v = e.getValue();
+                if (v == null) return;
+                try {
+                    currentViewMode = ViewMode.valueOf(v);
+                } catch (IllegalArgumentException ex) {
+                    currentViewMode = ViewMode.DETAILS;
+                }
+                applyViewMode();
+            });
+            applyViewMode();
+        }
     }
 
     private static String buildObjectKey(String prefix, String fileName) {
@@ -198,6 +236,7 @@ public class MinioView extends StandardView {
             String prefix = TreeNode.FOLDER.equals(selected.getType()) ? selected.getPath() : "";
             updateState(bucket, prefix);
             refreshFiles();
+            applyViewMode();
         } catch (Exception e) {
             notifications.show("Load object failed: " + e.getMessage());
         }
@@ -266,6 +305,7 @@ public class MinioView extends StandardView {
             }
             List<ObjectDto> list = fileService.getAllFromBucket(currentBucket, currentPrefix);
             objectDc.setItems(list);
+            applyViewMode();
         } catch (Exception e) {
             notifications.show("Load object failed: " + e.getMessage());
         }
@@ -330,6 +370,7 @@ public class MinioView extends StandardView {
 
         updateState(currentBucket, prefixField != null ? prefixField.getValue() : currentPrefix);
         refreshFiles();
+        applyViewMode();
     }
 
     //toggle metadata panel
@@ -361,6 +402,7 @@ public class MinioView extends StandardView {
             objectDc.setItems(parentList);
             String newPrefix = fileService.parentPrefix(currentPrefix);
             updateState(currentBucket, newPrefix);
+            applyViewMode();
             //Notification.show(currentPrefix.isEmpty() ? "Đã về root" : "Back: " + currentPrefix);
         } catch (Exception ex) {
             notifications.show("Back failed : " + ex.getMessage());
@@ -428,6 +470,7 @@ public class MinioView extends StandardView {
             DataGrid.Column<ObjectDto> nameColumn = objects.addComponentColumn(this::createObjectItem);
             nameColumn.setHeader("File");
             objects.setColumnPosition(nameColumn, 0);
+            nameComponentColumn = nameColumn;
         }
     }
 
@@ -437,20 +480,7 @@ public class MinioView extends StandardView {
         layout.setPadding(false);
         layout.setSpacing(true);
 
-        Icon icon;
-        if (item.getType() == TreeNode.BUCKET) {
-            icon = VaadinIcon.ARCHIVE.create();
-            icon.addClassName("bucket-item");
-        } else if (item.getType() == TreeNode.FOLDER) {
-            icon = VaadinIcon.FOLDER.create();
-            icon.addClassName("folder-item");
-        } else if (item.getType() == TreeNode.FILE) {
-            icon = VaadinIcon.FILE.create();
-            icon.addClassName("file-item");
-        } else {
-            icon = VaadinIcon.FILE_O.create();
-            icon.addClassName("file-item");
-        }
+        Icon icon = buildIcon(item.getType(), 16, null);
         icon.getElement().getStyle().set("flex-shrink", "0");
         Span text = new Span(item.getBucketName() != null ? item.getBucketName() : "");
         layout.add(icon, text);
@@ -463,8 +493,168 @@ public class MinioView extends StandardView {
         layout.setPadding(false);
         layout.setSpacing(true);
 
-        Icon icon = new Icon();
-        TreeNode type = item.getType();
+        int px = switch (currentViewMode) {
+            case LARGE_ICONS -> 48;
+            case MEDIUM_ICONS -> 28;
+            default -> 16;
+        };
+        Icon icon = buildIcon(item.getType(), px, null);
+        icon.getElement().getStyle().set("flex-shrink", "0");
+
+        Span text = new Span(item.getName() != null ? item.getName() : "");
+        layout.add(icon, text);
+        return layout;
+    }
+
+    private void applyViewMode() {
+        if (objects == null) return;
+        // Toggle column visibility
+        DataGrid.Column<ObjectDto> sizeCol = objects.getColumnByKey("size");
+        DataGrid.Column<ObjectDto> typeCol = objects.getColumnByKey("type");
+        DataGrid.Column<ObjectDto> dateCol = objects.getColumnByKey("lastModified");
+
+        boolean details = isDetailsMode();
+        boolean list = isListMode();
+        boolean iconMode = isIconMode();
+
+        // only show extra columns in DETAILS
+        if (sizeCol != null) sizeCol.setVisible(details);
+        if (typeCol != null) typeCol.setVisible(details);
+        if (dateCol != null) dateCol.setVisible(details);
+
+        // Update name column header
+        if (nameComponentColumn == null) {
+            // try to find component column as fallback
+            nameComponentColumn = objects.getColumns().stream()
+                    .filter(c -> c.getKey() == null) // component column usually has no property key
+                    .findFirst().orElse(null);
+        }
+        if (nameComponentColumn != null) {
+            if (details || list) {
+                nameComponentColumn.setHeader("File");
+            } else {
+                nameComponentColumn.setHeader("");
+            }
+        }
+
+        switchObjectsContainerVisibility(iconMode);
+        updateObjectsView();
+    }
+
+    private void renderIcons() {
+        if (iconContainer == null) return;
+        iconContainer.removeAll();
+        iconContainer.addClassName("icon-container");
+        iconContainer.getStyle().set("flex-wrap", "wrap");
+
+        int iconPx = currentViewMode == ViewMode.LARGE_ICONS ? 64 : 40;
+        int boxW = currentViewMode == ViewMode.LARGE_ICONS ? 120 : currentViewMode == ViewMode.MEDIUM_ICONS ? 100 : 220;
+
+        List<ObjectDto> items = objectDc.getItems();
+        if (items == null) return;
+        for (ObjectDto it : items) {
+            VerticalLayout box = new VerticalLayout();
+            box.setPadding(false);
+            box.setSpacing(false);
+            box.setAlignItems(FlexComponent.Alignment.CENTER);
+            box.addClassName("icon-card");
+            box.setWidth(boxW + "px");
+            box.setHeight(null);
+
+            // inner content to control selection highlight area tightly
+            VerticalLayout content = new VerticalLayout();
+            content.setPadding(false);
+            content.setSpacing(false);
+            content.setAlignItems(FlexComponent.Alignment.CENTER);
+            content.addClassName("icon-card-inner");
+
+            Icon icon = buildIcon(it.getType(), iconPx, "icon");
+
+            Span label = new Span(it.getName() != null ? it.getName() : "");
+            label.addClassName("icon-title");
+            label.setWidthFull();
+            // center and wrap to 2 lines like Windows Explorer
+            label.getStyle().set("text-align", "center");
+            label.getStyle().set("white-space", "normal");
+            label.getStyle().set("word-break", "break-word");
+            label.getStyle().set("display", "-webkit-box");
+            label.getStyle().set("-webkit-line-clamp", "2");
+            label.getStyle().set("-webkit-box-orient", "vertical");
+            label.getStyle().set("overflow", "hidden");
+
+            content.add(icon, label);
+            box.add(content);
+
+            box.addClickListener(e -> {
+                selectedIconItemId = stableItemId(it);
+                if (it.getType() == TreeNode.FOLDER) {
+                    updateState(currentBucket, computeNextPrefix(it));
+                    refreshFiles();
+                    renderIcons();
+                } else if (it.getType() == TreeNode.FILE) {
+                    loadFileMetadata(it);
+                }
+            });
+
+            attachIconContextMenu(box, it);
+
+            // highlight selection
+            if (stableItemId(it).equals(selectedIconItemId)) {
+                content.getStyle().set("outline", "2px solid var(--lumo-primary-color)");
+                content.getStyle().set("background", "var(--lumo-primary-color-10pct)");
+                content.getStyle().set("border-radius", "6px");
+                content.getStyle().set("padding", "4px");
+            }
+
+            iconContainer.add(box);
+        }
+    }
+
+    private void updateObjectsView() {
+        if (isIconMode()) {
+            renderIcons();
+        } else {
+            if (objects != null && objects.getDataProvider() != null) {
+                objects.getDataProvider().refreshAll();
+            }
+        }
+    }
+
+    private void switchObjectsContainerVisibility(boolean iconMode) {
+        if (iconContainer != null) iconContainer.setVisible(iconMode);
+        if (objects != null) objects.setVisible(!iconMode);
+    }
+
+    private boolean isIconMode() {
+        return currentViewMode == ViewMode.MEDIUM_ICONS || currentViewMode == ViewMode.LARGE_ICONS;
+    }
+
+    private boolean isListMode() {
+        return currentViewMode == ViewMode.LIST;
+    }
+
+    private boolean isDetailsMode() {
+        return currentViewMode == ViewMode.DETAILS;
+    }
+
+    private String computeNextPrefix(ObjectDto item) {
+        String key = item.getKey();
+        if (key != null && !key.isBlank()) return key;
+        String path = item.getPath();
+        if (path != null && !path.isBlank()) return path;
+        return item.getName();
+    }
+
+    private String stableItemId(ObjectDto item) {
+        String key = item.getKey();
+        if (key != null && !key.isBlank()) return key;
+        String path = item.getPath();
+        if (path != null && !path.isBlank()) return path;
+        return item.getName();
+    }
+
+    private Icon buildIcon(TreeNode type, int sizePx, String extraClass) {
+        Icon icon;
         if (type == TreeNode.FOLDER) {
             icon = VaadinIcon.FOLDER.create();
             icon.addClassName("folder-item");
@@ -474,12 +664,107 @@ public class MinioView extends StandardView {
         } else if (type == TreeNode.BUCKET) {
             icon = VaadinIcon.ARCHIVE.create();
             icon.addClassName("bucket-item");
+        } else {
+            icon = VaadinIcon.FILE_O.create();
+            icon.addClassName("file-item");
         }
-        icon.getElement().getStyle().set("flex-shrink", "0");
+        if (extraClass != null) icon.addClassName(extraClass);
+        icon.setSize(sizePx + "px");
+        return icon;
+    }
 
-        Span text = new Span(item.getName() != null ? item.getName() : "");
-        layout.add(icon, text);
-        return layout;
+    private void attachIconContextMenu(VerticalLayout target, ObjectDto item) {
+        ContextMenu menu = new ContextMenu(target);
+        menu.setOpenOnClick(false); // right-click
+
+        menu.addItem("New Folder", e -> openCreateFolderDialog());
+        menu.addItem("Delete", e -> deleteObject(item));
+        menu.addItem("Download", e -> downloadObject(item));
+        menu.addItem("Upload file", e -> Notification.show("Use toolbar Upload"));
+
+        menu.addOpenedChangeListener(ev -> {
+            if (ev.isOpened()) {
+                selectedIconItemId = stableItemId(item);
+                // re-apply highlight when menu opens via right click
+                renderIcons();
+            }
+        });
+    }
+
+    private void openCreateFolderDialog() {
+        if (currentBucket == null || currentBucket.isBlank()) {
+            notifications.show("Vui lòng chọn bucket trước!");
+            return;
+        }
+        dialogs.createInputDialog(this)
+                .withHeader("Tạo mới folder")
+                .withParameters(
+                        stringParameter("name")
+                                .withLabel("Tên Folder ")
+                                .withRequired(true)
+                                .withDefaultValue("New Folder")
+                )
+                .withActions(DialogActions.OK_CANCEL)
+                .withCloseListener(closeEvent -> {
+                    if (closeEvent.closedWith(DialogOutcome.OK)) {
+                        try {
+                            String objectKey = closeEvent.getValue("name");
+                            fileService.createNewObject(currentBucket, currentPrefix, objectKey);
+                            refreshBuckets();
+                            refreshFiles();
+                            notifications.show("Tạo mới folder thành công");
+                        } catch (MinioException e) {
+                            notifications.show("Không thể tạo mới folder" + e);
+                        }
+                    }
+                })
+                .open();
+    }
+
+    private void deleteObject(ObjectDto object) {
+        if (currentBucket == null || currentBucket.isBlank()) {
+            Notification.show("Chưa chọn bucket");
+            return;
+        }
+        if (object == null || object.getKey() == null || object.getKey().isBlank()) {
+            Notification.show("Chọn folder or file để xóa!");
+            return;
+        }
+        ConfirmDialog dlg = new ConfirmDialog();
+        dlg.setHeader("Xác nhận");
+        dlg.setText("Xóa file '" + object.getName() + " ?");
+        dlg.setCancelable(true);
+        dlg.setConfirmText("Xóa");
+        dlg.addConfirmListener(e2 -> {
+            try {
+                fileService.delete(currentBucket, object.getKey());
+                Notification.show("Đã xóa file: " + object.getName());
+                refreshFiles();
+                refreshBuckets();
+            } catch (Exception ex) {
+                notifications.show("Không thể xóa bucket (có thể bucket chưa rỗng)." + ex);
+            }
+        });
+        dlg.open();
+    }
+
+
+    private void downloadObject(ObjectDto selected) {
+        if (selected == null || selected.getKey() == null || selected.getKey().isBlank()) {
+            Notification.show("Chưa chọn file");
+            return;
+        }
+        if (currentBucket == null || currentBucket.isBlank()) {
+            Notification.show("Chưa chọn bucket");
+            return;
+        }
+        try {
+            String url = fileService.download(currentBucket, selected.getKey(), 300);
+            getUI().ifPresent(ui -> ui.getPage().open(url));
+            Notification.show("Downloading '" + selected.getKey() + "'");
+        } catch (Exception e) {
+            Notification.show("Tải xuống thất bại: " + e.getMessage());
+        }
     }
 
 
@@ -726,7 +1011,4 @@ public class MinioView extends StandardView {
                 })
                 .open();
     }
-
-
-
 }
