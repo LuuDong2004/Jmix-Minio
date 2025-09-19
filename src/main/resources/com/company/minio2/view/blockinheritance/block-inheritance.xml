@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<view xmlns="http://jmix.io/schema/flowui/view"
+      title="msg://blockInheritance.title">
+    <layout spacing="true" padding="true">
+        <label text="⚠ What would you like to do with the current inherited permissions?"/>
+        <label text="You are about to block inheritance to this object, which means that permissions inherited from a parent object will no longer be applied to this object."/>
+
+        <button id="convertBtn"
+                text="→ Convert inherited permissions into explicit permissions on this object."
+                classNames="link-btn"/>
+
+        <button id="removeBtn"
+                text="→ Remove all inherited permissions from this object."
+                classNames="link-btn"/>
+
+        <button id="cancelBtn"
+                text="Cancel" alignSelf="END"/>
+    </layout>
+</view>

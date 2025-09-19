@@ -72,6 +72,7 @@ public class EditPermission extends StandardView {
     private CollectionLoader<ResourceRoleEntity> rolesDl;
 
     private ObjectDTO target;
+
     @ViewComponent
     private CollectionContainer<Permission> permissionsDc;
 

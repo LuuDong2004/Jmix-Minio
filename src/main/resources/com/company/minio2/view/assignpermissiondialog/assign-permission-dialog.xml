@@ -84,5 +84,8 @@
                 </columns>
             </dataGrid>
         </vbox>
+        <hbox spacing="true">
+            <button id="advanceBtn" text="Advanced"/>
+        </hbox>
     </layout>
 </view>

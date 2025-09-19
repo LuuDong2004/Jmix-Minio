@@ -2,6 +2,7 @@ package com.company.minio2.view.assignpermissiondialog;
 
 import com.company.minio2.entity.*;
 import com.company.minio2.service.minio.SecurityService;
+import com.company.minio2.view.advancesecurity.AdvanceSecurity;
 import com.company.minio2.view.editpermission.EditPermission;
 import com.company.minio2.view.main.MainView;
 import com.vaadin.flow.component.ClickEvent;
@@ -212,6 +213,15 @@ public class AssignPermissionDialog extends StandardView {
             usersDl.setParameter("filePath", filePath);
             usersDl.load();
         }
+    }
+
+    @Subscribe(id = "advanceBtn", subject = "clickListener")
+    public void onAdvanceBtnClick(final ClickEvent<JmixButton> event) {
+        ObjectDTO seleted = objectDTODataGrid.getSingleSelectedItem();
+        DialogWindow<AdvanceSecurity> window = dialogWindows.view(this, AdvanceSecurity.class).build();
+        window.getView().setFilePath(filePath);
+        window.getView().setTarget(seleted);
+        window.open();
     }
 
 }

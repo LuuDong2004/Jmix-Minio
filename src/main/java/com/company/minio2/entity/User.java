@@ -174,6 +174,11 @@ public class User implements JmixUserDetails, HasTimeZone {
                 (lastName != null ? lastName : ""), username).trim();
     }
 
+    @InstanceName
+    public String getInstanceName() {
+        return username;
+    }
+
     @Override
     public String getTimeZoneId() {
         return timeZoneId;

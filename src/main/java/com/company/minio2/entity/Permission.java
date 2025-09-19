@@ -17,6 +17,18 @@ public class Permission {
     @Id
     private UUID id;
 
+    @Column(name = "INHERITED")
+    private Boolean inherited;
+
+    @Column(name = "INHERIT_ENABLED")
+    private Boolean inheritEnabled;
+
+    @Column(name = "APPLIES_TO")
+    private String appliesTo;
+
+    @Column(name = "INHERITED_FROM")
+    private String inheritedFrom;
+
     @Column(name = "PERMISSION_TYPE")
     private Integer permissionType;
 
@@ -35,6 +47,38 @@ public class Permission {
 
     @Transient
     private Boolean allow;
+
+    public String getInheritedFrom() {
+        return inheritedFrom;
+    }
+
+    public void setInheritedFrom(String inheritedFrom) {
+        this.inheritedFrom = inheritedFrom;
+    }
+
+    public AppliesTo getAppliesTo() {
+        return AppliesTo.fromId(appliesTo);
+    }
+
+    public void setAppliesTo(AppliesTo appliesTo) {
+        this.appliesTo = appliesTo == null ? null : appliesTo.getId();
+    }
+
+    public Boolean getInheritEnabled() {
+        return inheritEnabled;
+    }
+
+    public void setInheritEnabled(Boolean inheritEnabled) {
+        this.inheritEnabled = inheritEnabled;
+    }
+
+    public Boolean getInherited() {
+        return inherited;
+    }
+
+    public void setInherited(Boolean inherited) {
+        this.inherited = inherited;
+    }
 
     public String getRoleCode() {
         return roleCode;

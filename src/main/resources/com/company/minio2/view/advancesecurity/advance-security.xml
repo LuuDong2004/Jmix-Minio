@@ -1,0 +1,56 @@
+<view xmlns="http://jmix.io/schema/flowui/view"
+      title="Advanced Security Settings">
+    <data>
+        <collection id="permissionsDc" class="com.company.minio2.entity.Permission">
+            <fetchPlan extends="_base">
+                <property name="user" fetchPlan="_base"/>
+                <property name="roleCode"/>
+                <property name="permissionType"/>
+                <property name="inherited"/>
+                <property name="inheritEnabled"/>
+            </fetchPlan>
+            <loader id="permissionsDl">
+                <query>
+                    <![CDATA[
+                        select p from Permission p
+                        where p.filePath = :filePath
+                    ]]>
+                </query>
+            </loader>
+        </collection>
+    </data>
+
+    <layout width="100%" height="100%">
+        <!-- File info -->
+        <textArea id="fileKeyArea" label="Name:" readOnly="true" width="100%"/>
+
+        <!-- Permission entries table -->
+        <dataGrid id="permissionDataGrid"
+                  dataContainer="permissionsDc"
+                  width="100%" height="300px">
+            <columns>
+                <column property="user" header="Principal"/>
+            </columns>
+        </dataGrid>
+
+        <!-- Action buttons -->
+        <hbox spacing="true">
+            <button id="addBtn" text="Add"/>
+            <button id="removeBtn" text="Remove"/>
+            <button id="viewBtn" text="View"/>
+        </hbox>
+
+        <!-- Inheritance options -->
+        <vbox spacing="true" width="100%">
+            <button id="disableInheritanceBtn" text="Disable inheritance"/>
+            <checkbox id="replaceChildPermissions"
+                      label="Replace all child object permission entries with inheritable permission entries from this object"/>
+        </vbox>
+
+        <!-- Bottom buttons -->
+        <hbox spacing="true" alignSelf="END">
+            <button id="cancelBtn" text="Cancel"/>
+            <button id="applyBtn" text="Apply"/>
+        </hbox>
+    </layout>
+</view>
