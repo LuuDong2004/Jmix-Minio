@@ -12,6 +12,7 @@ import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
 import org.springframework.stereotype.Service;
 
+import javax.management.Notification;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.net.URLEncoder;
@@ -305,5 +306,40 @@ public class FileServiceImpl implements IFileService {
 
     private static String stripSlashes(String s) {
         return s == null ? "" : s.replaceAll("^/+", "").replaceAll("/+$", "");
+    }
+
+
+    @Override
+    public ObjectDto getObjectDetail(String bucket, String objectKey) {
+        try {
+            StatObjectResponse response = minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .build()
+            );
+
+            ObjectDto object = new ObjectDto();
+            object.setKey(objectKey);
+            object.setName(extractDisplayName(null, objectKey));
+            object.setType(TreeNode.FILE);
+            object.setSize(response.size());
+            object.setLastModified(response.lastModified().toLocalDateTime());
+            
+            // Store additional metadata in the path field (ETag, Content-Type, etc.)
+            StringBuilder metadata = new StringBuilder();
+            metadata.append("ETag: ").append(response.etag());
+            if (response.contentType() != null && !response.contentType().isEmpty()) {
+                metadata.append(" | Content-Type: ").append(response.contentType());
+            }
+            if (response.userMetadata() != null && !response.userMetadata().isEmpty()) {
+                metadata.append(" | User Metadata: ").append(response.userMetadata());
+            }
+            object.setPath(metadata.toString());
+            
+            return object;
+        } catch (Exception e) {
+            throw new MinioException("Không lấy được dữ liệu object", e);
+        }
     }
 }

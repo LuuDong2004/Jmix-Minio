@@ -1,0 +1,70 @@
+/* Metadata Panel Styling */
+#metadataPanel {
+    border-left: 1px solid #DDDDDD;
+    background-color: #FFFFFF;
+    padding: 0;
+}
+
+#metadataPanel h3 {
+    color: #333333;
+    font-weight: bold;
+    margin: 0;
+    padding: 16px 16px 8px 16px;
+}
+
+.toggle-metadata-btn {
+    margin-left: auto;
+    background-color: #007bff;
+    color: #FFFFFF;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.toggle-metadata-btn:hover {
+    background-color: #0056b3;
+}
+
+/* Header styling */
+#metadataPanel hbox {
+    padding: 16px 16px 0 16px;
+    border-bottom: 1px solid #DDDDDD;
+    background-color: #FFFFFF;
+}
+
+/* Metadata Content Vertical Layout */
+.metadata-content {
+    padding: 16px;
+    gap: 16px;
+    background-color: #FFFFFF;
+}
+
+.metadata-row {
+    align-items: flex-start;
+    margin-bottom: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid #EEEEEE;
+}
+
+.metadata-row:last-child {
+    border-bottom: none;
+}
+
+.metadata-label {
+    font-weight: bold;
+    color: #333333;
+    min-width: 120px;
+    font-size: 14px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.metadata-value {
+    color: #666666;
+    font-size: 14px;
+    word-break: break-all;
+    flex: 1;
+    line-height: 1.4;
+}

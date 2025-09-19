@@ -19,6 +19,7 @@ import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.upload.Upload;
 import com.vaadin.flow.router.Route;
 
@@ -61,7 +62,10 @@ public class MinioView extends StandardView {
     private CollectionContainer<BucketDto> bucketsDc;
 
     @ViewComponent
-    private CollectionContainer<ObjectDto> filesDc;
+    private CollectionContainer<ObjectDto> objectDc;
+
+    @ViewComponent
+    private CollectionContainer<ObjectDto> metadataDc;
 
     @ViewComponent
     private TreeDataGrid<BucketDto> buckets;
@@ -72,11 +76,36 @@ public class MinioView extends StandardView {
     @ViewComponent
     private DataGrid<ObjectDto> objects;
 
+    @ViewComponent("metadataPanel")
+    private VerticalLayout metadataPanel;
+
+    @ViewComponent("metadataContent")
+    private VerticalLayout metadataContent;
+
+    @ViewComponent("metadataName")
+    private Span metadataName;
+
+    @ViewComponent("metadataSize")
+    private Span metadataSize;
+
+    @ViewComponent("metadataLastModified")
+    private Span metadataLastModified;
+
+    @ViewComponent("metadataETag")
+    private Span metadataETag;
+
+    @ViewComponent("metadataContentType")
+    private Span metadataContentType;
+
+    @ViewComponent("toggleMetadataBtn")
+    private JmixButton toggleMetadataBtn;
+
     @ViewComponent
     private TypedTextField<String> prefixField;
 
     private String currentBucket;
     private String currentPrefix = "";
+    private boolean metadataVisible = true;
 
     @ViewComponent("fileUpload")
     private Upload fileUpload;
@@ -85,14 +114,16 @@ public class MinioView extends StandardView {
     private Dialogs dialogs;
     @Autowired
     private Notifications notifications;
-
-
     @Subscribe
     public void onInit(InitEvent event) {
         loadAllBuckets();
         viewItemFile();
         viewItemObject();
 
+        metadataPanel.setVisible(false);
+        metadataVisible = false;
+        toggleMetadataBtn.setText("Show");
+        clearMetadata();
 
         //upload file - oninit
         fileBuffer = new MultiFileMemoryBuffer();
@@ -127,12 +158,6 @@ public class MinioView extends StandardView {
         });
     }
 
-    //dong
-    private String withCurrentPrefix(String rel) {
-        if (currentPrefix == null || currentPrefix.isBlank()) return rel;
-        return currentPrefix.endsWith("/") ? currentPrefix + rel : currentPrefix + "/" + rel;
-    }
-
     private static String buildObjectKey(String prefix, String fileName) {
         if (prefix == null || prefix.isBlank()) return fileName;
         return prefix.endsWith("/") ? prefix + fileName : prefix + "/" + fileName;
@@ -165,7 +190,7 @@ public class MinioView extends StandardView {
             BucketDto selected = buckets.getSingleSelectedItem();
             if (selected == null) {
                 updateState(null, "");
-                filesDc.setItems(List.of());
+                objectDc.setItems(List.of());
                 return;
             }
             BucketDto root = rootOf(selected);
@@ -177,17 +202,70 @@ public class MinioView extends StandardView {
             notifications.show("Load object failed: " + e.getMessage());
         }
     }
+    private void loadFileMetadata(ObjectDto file) {
+        if (currentBucket == null || currentBucket.isBlank()) {
+            notifications.show("Chọn bucket trước");
+            return;
+        }
+        if (file == null || file.getKey() == null || file.getKey().isBlank()) {
+            notifications.show("Không có thông tin file");
+            return;
+        }
+        try {
+            ObjectDto fileMetadata = fileService.getObjectDetail(currentBucket, file.getKey());
+            metadataName.setText(fileMetadata.getName() != null ? fileMetadata.getName() : "N/A");
+            metadataSize.setText(fileMetadata.getSize() != null ? formatFileSize(fileMetadata.getSize()) : "N/A");
+            metadataLastModified.setText(fileMetadata.getLastModified() != null ? 
+                fileMetadata.getLastModified().toString() : "N/A");
+            
+            // Parse metadata string to extract ETag and Content-Type
+            String metadataString = fileMetadata.getPath();
+            String etag = "N/A";
+            String contentType = "N/A";
+            
+            if (metadataString != null && !metadataString.isEmpty()) {
+                String[] parts = metadataString.split(" \\| ");
+                for (String part : parts) {
+                    if (part.startsWith("ETag: ")) {
+                        etag = part.substring(6);
+                    } else if (part.startsWith("Content-Type: ")) {
+                        contentType = part.substring(14);
+                    }
+                }
+            }
+            
+            metadataETag.setText(etag);
+            metadataContentType.setText(contentType);
+            
+            // Show the metadata panel if it's hidden
+            if (!metadataVisible) {
+                metadataVisible = true;
+                metadataPanel.setVisible(true);
+                toggleMetadataBtn.setText("Hide");
+            }
+        } catch (Exception e) {
+            notifications.show("Không thể load metadata: " + e.getMessage());
+        }
+    }
+    
+    private String formatFileSize(Long size) {
+        if (size == null) return "N/A";
+        if (size < 1024) return size + " B";
+        if (size < 1024 * 1024) return String.format("%.1f KB", size / 1024.0);
+        if (size < 1024 * 1024 * 1024) return String.format("%.1f MB", size / (1024.0 * 1024.0));
+        return String.format("%.1f GB", size / (1024.0 * 1024.0 * 1024.0));
+    }
 
     // làm mới object - data
     private void refreshFiles() {
         try {
             if (currentBucket == null || currentBucket.isBlank()) {
-                filesDc.setItems(List.of());
+                objectDc.setItems(List.of());
                 if (backBtn != null) backBtn.setEnabled(false);
                 return;
             }
             List<ObjectDto> list = fileService.getAllFromBucket(currentBucket, currentPrefix);
-            filesDc.setItems(list);
+            objectDc.setItems(list);
         } catch (Exception e) {
             notifications.show("Load object failed: " + e.getMessage());
         }
@@ -243,7 +321,7 @@ public class MinioView extends StandardView {
 
         try {
             List<ObjectDto> results = fileService.search(currentBucket, prefix, nameFragment);
-            filesDc.setItems(results);
+            objectDc.setItems(results);
             updateState(currentBucket, prefix);
             Notification.show("Tìm thấy " + results.size() + " object");
         } catch (Exception e) {
@@ -252,6 +330,19 @@ public class MinioView extends StandardView {
 
         updateState(currentBucket, prefixField != null ? prefixField.getValue() : currentPrefix);
         refreshFiles();
+    }
+
+    //toggle metadata panel
+    @Subscribe(id = "toggleMetadataBtn", subject = "clickListener")
+    public void onToggleMetadataBtnClick(final ClickEvent<JmixButton> event) {
+        metadataVisible = !metadataVisible;
+        if (metadataVisible) {
+            metadataPanel.setVisible(true);
+            toggleMetadataBtn.setText("Hide");
+        } else {
+            metadataPanel.setVisible(false);
+            toggleMetadataBtn.setText("Show");
+        }
     }
 
     // back to file
@@ -267,7 +358,7 @@ public class MinioView extends StandardView {
         }
         try {
             List<ObjectDto> parentList = fileService.back(currentBucket, currentPrefix);
-            filesDc.setItems(parentList);
+            objectDc.setItems(parentList);
             String newPrefix = fileService.parentPrefix(currentPrefix);
             updateState(currentBucket, newPrefix);
             //Notification.show(currentPrefix.isEmpty() ? "Đã về root" : "Back: " + currentPrefix);
@@ -276,7 +367,7 @@ public class MinioView extends StandardView {
         }
     }
 
-    // Double click: mở object con bên phải
+    // 2 click: mở object con bên phải
     @Subscribe("objects")
     public void onObjectsItemDoubleClick(final ItemDoubleClickEvent<ObjectDto> event) {
         ObjectDto item = event.getItem();
@@ -297,12 +388,13 @@ public class MinioView extends StandardView {
                     List<ObjectDto> children = fileService.openFolder(currentBucket, currentPrefix);
                     item.setChildren(children);
                 }
-                filesDc.setItems(item.getChildren());
+                objectDc.setItems(item.getChildren());
             } catch (Exception e) {
                 notifications.show("Load folder con thất bại" + e);
             }
         } else if (TreeNode.FILE.equals(item.getType())) {
-            Notification.show("Double click file: " + item.getName());
+            // Show metadata for the selected file
+            loadFileMetadata(item);
         }
     }
 
@@ -412,7 +504,24 @@ public class MinioView extends StandardView {
 
     @Subscribe("objects")
     public void onObjectsItemClick(final ItemClickEvent<ObjectDto> event) {
-
+        ObjectDto item = event.getItem();
+        if (item == null) return;
+        
+        // Refresh metadata when clicking on any file or folder
+        if (TreeNode.FILE.equals(item.getType())) {
+            loadFileMetadata(item);
+        } else if (TreeNode.FOLDER.equals(item.getType())) {
+            // Clear metadata for folders
+            clearMetadata();
+        }
+    }
+    
+    private void clearMetadata() {
+        metadataName.setText("N/A");
+        metadataSize.setText("N/A");
+        metadataLastModified.setText("N/A");
+        metadataETag.setText("N/A");
+        metadataContentType.setText("N/A");
     }
 
     //menu tạo mới folder - data
@@ -617,4 +726,7 @@ public class MinioView extends StandardView {
                 })
                 .open();
     }
+
+
+
 }
