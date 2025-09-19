@@ -545,10 +545,13 @@ public class MinioView extends StandardView {
         if (iconContainer == null) return;
         iconContainer.removeAll();
         iconContainer.addClassName("icon-container");
+        iconContainer.setPadding(false);
+        iconContainer.setSpacing(false);
         iconContainer.getStyle().set("flex-wrap", "wrap");
+        iconContainer.getStyle().set("gap", "2px");
 
         int iconPx = currentViewMode == ViewMode.LARGE_ICONS ? 64 : 40;
-        int boxW = currentViewMode == ViewMode.LARGE_ICONS ? 120 : currentViewMode == ViewMode.MEDIUM_ICONS ? 100 : 220;
+        int boxW = currentViewMode == ViewMode.LARGE_ICONS ? 92 : currentViewMode == ViewMode.MEDIUM_ICONS ? 72 : 220;
 
         List<ObjectDto> items = objectDc.getItems();
         if (items == null) return;
@@ -560,6 +563,7 @@ public class MinioView extends StandardView {
             box.addClassName("icon-card");
             box.setWidth(boxW + "px");
             box.setHeight(null);
+            box.setMargin(false);
 
             // inner content to control selection highlight area tightly
             VerticalLayout content = new VerticalLayout();
