@@ -1,1 +1,41 @@
 /* Define your styles here */
+html {
+    --lumo-font-size: 1rem;
+    --lumo-font-size-xxxl: 1.375rem;
+    --lumo-font-size-xxl: 1.125rem;
+    --lumo-font-size-xl: 1rem;
+    --lumo-font-size-l: 0.875rem;
+    --lumo-font-size-m: 0.75rem;
+    --lumo-font-size-s: 0.6875rem;
+    --lumo-font-size-xs: 0.625rem;
+    --lumo-font-size-xxs: 0.625rem;
+    --lumo-line-height-m: 1.4;
+    --lumo-line-height-s: 1.2;
+    --lumo-line-height-xs: 1.1;
+    --lumo-space-xl: 1.875rem;
+    --lumo-space-l: 1.25rem;
+    --lumo-space-m: 0.625rem;
+    --lumo-space-s: 0.3125rem;
+    --lumo-space-xs: 0.1875rem;
+    --lumo-border-radius: 0.5em;
+}
+
+/* Tighter spacing for icon grid */
+.icon-container {
+    gap: 2px !important;
+    align-content: flex-start !important; /* pack rows at top, remove big vertical gaps */
+}
+
+.icon-card {
+    padding: 2px !important;
+    margin: 0 !important;
+}
+
+.icon-card-inner {
+    padding: 2px !important;
+    margin: 0 !important;
+}
+
+.icon-title {
+    margin-top: 2px !important;
+}

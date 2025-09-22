@@ -9,4 +9,5 @@ import io.jmix.flowui.view.ViewDescriptor;
 @ViewController(id = "MainView")
 @ViewDescriptor(path = "main-view.xml")
 public class MainView extends StandardMainView {
+
 }
