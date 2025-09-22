@@ -35,7 +35,6 @@
 
         <!-- Action buttons -->
         <hbox spacing="true">
-            <button id="addBtn" text="Add"/>
             <button id="removeBtn" text="Remove"/>
             <button id="viewBtn" text="View"/>
         </hbox>

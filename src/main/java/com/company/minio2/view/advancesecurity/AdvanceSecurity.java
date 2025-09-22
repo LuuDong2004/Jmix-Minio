@@ -11,13 +11,13 @@ import com.vaadin.flow.router.Route;
 import io.jmix.flowui.DialogWindows;
 import io.jmix.flowui.component.checkbox.JmixCheckbox;
 import io.jmix.flowui.component.grid.DataGrid;
+import io.jmix.flowui.data.ContainerDataUnit;
 import io.jmix.flowui.kit.component.button.JmixButton;
+import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.model.CollectionLoader;
 import io.jmix.flowui.view.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.awt.*;
-import java.util.ArrayList;
 import java.util.Collections;
 
 @Route(value = "advance-security", layout = MainView.class)
@@ -71,8 +71,20 @@ public class AdvanceSecurity extends StandardView {
     }
 
     private void updateInheritanceButtonLabel(Permission permission) {
+        if (permission == null && permissionDataGrid.getItems() != null) {
+            if (permissionDataGrid.getItems() instanceof ContainerDataUnit) {
+                ContainerDataUnit<?> dataUnit = (ContainerDataUnit<?>) permissionDataGrid.getItems();
+                if (dataUnit.getContainer() instanceof CollectionContainer) {
+                    CollectionContainer<Permission> container = (CollectionContainer<Permission>) dataUnit.getContainer();
+                    if (!container.getItems().isEmpty()) {
+                        permission = container.getItems().get(0); // lấy phần tử đầu tiên
+                    }
+                }
+            }
+        }
         if (permission == null) {
-            disableInheritanceBtn.setText("Disable Inheritance");
+            // Không có permission => coi như inheritance đã bị remove
+            disableInheritanceBtn.setText("Enable Inheritance");
             return;
         }
         if (Boolean.FALSE.equals(permission.getInheritEnabled())) {
@@ -138,7 +150,15 @@ public class AdvanceSecurity extends StandardView {
     @Subscribe(id = "disableInheritanceBtn", subject = "clickListener")
     public void onDisableInheritanceBtnClick(final ClickEvent<JmixButton> event) {
         Permission permission = permissionDataGrid.getSingleSelectedItem();
-        if (permission == null) return;
+        if (permission == null) {
+            // Không có record nào (Remove case). Hãy enable inheritance cho tất cả principals tại filePath.
+            if (filePath != null && !filePath.isBlank()) {
+                securityService.enableRemoveInheritance(filePath);
+                permissionsDl.load();
+                updateInheritanceButtonLabel(permissionDataGrid.getSingleSelectedItem());
+            }
+            return;
+        }
 
         if (Boolean.TRUE.equals(permission.getInheritEnabled())) {
             // Đang kế thừa → disable → mở dialog Convert/Remove
@@ -150,12 +170,13 @@ public class AdvanceSecurity extends StandardView {
             });
             window.open();
         } else {
-            // Đã disable → enable lại
+            // Đã disable → enable lại (user-specific)
             securityService.enableInheritance(permission.getUser(), permission.getFilePath());
             permissionsDl.load();
             updateInheritanceButtonLabel(permissionDataGrid.getSingleSelectedItem());
         }
     }
+
 
     @Subscribe(id = "applyBtn", subject = "clickListener")
     public void onApplyBtnClick(final ClickEvent<JmixButton> event) {
@@ -175,4 +196,10 @@ public class AdvanceSecurity extends StandardView {
         permissionsDl.load();
         close(StandardOutcome.SAVE);
     }
+
+    @Subscribe(id = "cancelBtn", subject = "clickListener")
+    public void onCancelBtnClick(final ClickEvent<JmixButton> event) {
+        close(StandardOutcome.CLOSE);
+    }
+
 }

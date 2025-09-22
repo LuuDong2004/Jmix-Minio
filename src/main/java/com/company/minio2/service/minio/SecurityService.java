@@ -34,7 +34,7 @@ public class SecurityService {
             permission.setFilePath(filePath);
         }
 
-        // ✅ Xác định AppliesTo mặc định
+        // Xác định AppliesTo mặc định
         AppliesTo appliesTo;
         if (filePath != null && filePath.endsWith("/")) {
             appliesTo = AppliesTo.THIS_FOLDER_SUBFOLDERS_FILES;
@@ -286,61 +286,170 @@ public class SecurityService {
     }
 
     public void enableInheritance(User user, String filePath) {
-        // Lấy tất cả permission của user cho filePath này
+        // Lấy tất cả permission (explicit hoặc inherited nếu còn) cho user tại node này
         List<Permission> perms = dataManager.load(Permission.class)
                 .query("select p from Permission p where p.user = :user and p.filePath = :path")
                 .parameter("user", user)
                 .parameter("path", filePath)
                 .list();
 
+        // bật inheritEnabled cho các bản đã tồn tại
         for (Permission p : perms) {
-            // chỉ cần bật lại cờ cho phép kế thừa
             p.setInheritEnabled(true);
-            p.setInherited(true);
             dataManager.save(p);
         }
 
-        // Nếu node hiện tại chưa có permission nào (trước đó đã xoá),
-        // thì có thể tạo mới một record kế thừa từ cha:
-        if (perms.isEmpty()) {
-            String parentPath = findParentPath(filePath);
-            Permission parent = loadPermission(user, parentPath);
-            if (parent != null) {
-                Permission inherited = dataManager.create(Permission.class);
-                inherited.setUser(user);
-                inherited.setFilePath(filePath);
-                inherited.setPermissionMask(parent.getPermissionMask());
-                inherited.setInherited(true);
-                inherited.setInheritEnabled(true);
-                inherited.setInheritedFrom(parentPath);
+        // tìm ancestor gần nhất có permission cho user này
+        String parentPath = findParentPath(filePath);
+        Permission ancestor = findNearestAncestorPermission(user, parentPath);
 
-                if (filePath != null && filePath.endsWith("/")) {
-                    inherited.setAppliesTo(AppliesTo.THIS_FOLDER_SUBFOLDERS_FILES);
-                } else {
-                    inherited.setAppliesTo(AppliesTo.THIS_FOLDER_ONLY);
-                }
+        if (ancestor != null) {
+            // Nếu node hiện tại chưa có permission cho user này thì tạo bản inherited mới
+            Permission nodePerm = dataManager.load(Permission.class)
+                    .query("select p from Permission p where p.user = :user and p.filePath = :path")
+                    .parameter("user", user)
+                    .parameter("path", filePath)
+                    .optional()
+                    .orElse(null);
 
-                dataManager.save(inherited);
+            if (nodePerm == null) {
+                nodePerm = dataManager.create(Permission.class);
+                nodePerm.setUser(user);
+                nodePerm.setFilePath(filePath);
+                nodePerm.setPermissionMask(ancestor.getPermissionMask());
+                nodePerm.setInherited(true);
+                nodePerm.setInheritEnabled(true);
+                nodePerm.setInheritedFrom(ancestor.getFilePath());
+                nodePerm.setAppliesTo(filePath != null && filePath.endsWith("/")
+                        ? AppliesTo.THIS_FOLDER_SUBFOLDERS_FILES
+                        : AppliesTo.THIS_FOLDER_ONLY);
+                dataManager.save(nodePerm);
             }
-        }
 
-        // propagate xuống children nếu muốn
+            // propagate xuống children theo mask của ancestor (đảm bảo dùng bucket/prefix đúng)
+            String[] bp = splitBucketAndPrefix(filePath);
+            String bucket = bp[0];
+            String prefix = bp[1];
+            propagateToChildren(user, null, bucket, prefix, ancestor.getPermissionMask());
+        }
+    }
+
+    /**
+     * Enable inheritance for a node when there is NO permission record on the node (Remove case).
+     * It finds the nearest ancestor that has any permissions and clones all those permissions
+     * as inherited permissions on this node (for all users and roles), then propagates down.
+     */
+    public void enableRemoveInheritance(String filePath) {
+        if (filePath == null) return;
+
+        String parentPath = findParentPath(filePath);
         String[] bp = splitBucketAndPrefix(filePath);
         String bucket = bp[0];
         String prefix = bp[1];
+        String normalizedPrefix = normalizePrefix(prefix);
 
-        Permission parent = loadPermission(user, findParentPath(filePath));
-        if (parent != null) {
-            propagateToChildren(user, null, bucket, prefix, parent.getPermissionMask());
+        String current = parentPath;
+        while (current != null && !current.isEmpty()) {
+            List<Permission> ancestorPerms = dataManager.load(Permission.class)
+                    .query("select p from Permission p where p.filePath = :path")
+                    .parameter("path", current)
+                    .list();
+
+            if (!ancestorPerms.isEmpty()) {
+                // clone mỗi permission vào node hiện tại (nếu đã có permission cùng principal thì chỉ bật inheritEnabled)
+                for (Permission anc : ancestorPerms) {
+                    Permission existing;
+                    if (anc.getUser() != null) {
+                        existing = dataManager.load(Permission.class)
+                                .query("select p from Permission p where p.user = :user and p.filePath = :path")
+                                .parameter("user", anc.getUser())
+                                .parameter("path", filePath)
+                                .optional().orElse(null);
+                    } else {
+                        existing = dataManager.load(Permission.class)
+                                .query("select p from Permission p where p.roleCode = :roleCode and p.filePath = :path")
+                                .parameter("roleCode", anc.getRoleCode())
+                                .parameter("path", filePath)
+                                .optional().orElse(null);
+                    }
+
+                    if (existing != null) {
+                        existing.setInheritEnabled(true);
+                        dataManager.save(existing);
+                    } else {
+                        Permission inher = dataManager.create(Permission.class);
+                        if (anc.getUser() != null) {
+                            inher.setUser(anc.getUser());
+                        } else {
+                            inher.setRoleCode(anc.getRoleCode());
+                        }
+                        inher.setFilePath(filePath);
+                        inher.setPermissionMask(anc.getPermissionMask());
+                        inher.setInherited(true);
+                        inher.setInheritEnabled(true);
+                        inher.setInheritedFrom(anc.getFilePath());
+                        inher.setAppliesTo(filePath.endsWith("/") ? AppliesTo.THIS_FOLDER_SUBFOLDERS_FILES : AppliesTo.THIS_FOLDER_ONLY);
+                        dataManager.save(inher);
+                    }
+
+                    // propagate tương ứng cho mỗi principal
+                    if (anc.getUser() != null) {
+                        propagateToChildren(anc.getUser(), null, bucket, normalizedPrefix, anc.getPermissionMask());
+                    } else {
+                        ResourceRoleEntity roleEntity = loadRoleByCode(anc.getRoleCode());
+                        if (roleEntity != null) {
+                            propagateToChildren(null, roleEntity, bucket, normalizedPrefix, anc.getPermissionMask());
+                        }
+                    }
+                }
+                // đã clone từ ancestor gần nhất -> dừng
+                return;
+            }
+
+            current = findParentPath(current);
         }
+        // nếu không tìm được ancestor có permission thì không làm gì
+    }
+
+    private ResourceRoleEntity loadRoleByCode(String roleCode) {
+        if (roleCode == null) return null;
+        return dataManager.load(ResourceRoleEntity.class)
+                .query("select r from ResourceRoleEntity r where r.code = :code")
+                .parameter("code", roleCode)
+                .optional()
+                .orElse(null);
+    }
+
+
+    private Permission findNearestAncestorPermission(User user, String startPath) {
+        String current = startPath;
+        while (current != null && !current.isEmpty()) {
+            Permission p = dataManager.load(Permission.class)
+                    .query("select p from Permission p where p.user = :user and p.filePath = :path")
+                    .parameter("user", user)
+                    .parameter("path", current)
+                    .optional()
+                    .orElse(null);
+            if (p != null) {
+                return p;
+            }
+            current = findParentPath(current);
+        }
+        return null;
     }
 
     private String findParentPath(String filePath) {
-        if (filePath == null || !filePath.contains("/")) return "";
-        int lastSlash = filePath.lastIndexOf('/');
-        return filePath.substring(0, lastSlash);
+        if (filePath == null || !filePath.contains("/")) {
+            return ""; // root thì không có cha
+        }
+        // Bỏ dấu '/' cuối (nếu có)
+        String normalized = filePath.endsWith("/") ? filePath.substring(0, filePath.length() - 1) : filePath;
+        int lastSlash = normalized.lastIndexOf('/');
+        if (lastSlash < 0) {
+            return ""; // không có cha
+        }
+        return normalized.substring(0, lastSlash + 1); // giữ lại '/' cuối
     }
-
 
     public void replaceChildPermissions(User user, String parentPath, int parentMask) {
         String[] bp = splitBucketAndPrefix(parentPath);
@@ -362,7 +471,7 @@ public class SecurityService {
                 dataManager.remove(e);
             }
 
-            // ✅ Tạo permission mới kế thừa từ cha
+            // Tạo permission mới kế thừa từ cha
             Permission childPerm = dataManager.create(Permission.class);
             childPerm.setUser(user);
             childPerm.setFilePath(childFullPath);
@@ -376,10 +485,8 @@ public class SecurityService {
             } else {
                 childPerm.setAppliesTo(AppliesTo.THIS_FOLDER_ONLY);
             }
-
             dataManager.save(childPerm);
-
-            // 🔁 Đệ quy xuống tiếp nếu là folder
+            // Đệ quy xuống tiếp nếu là folder
             if (child.getType() == TreeNode.FOLDER) {
                 replaceChildPermissions(user, childFullPath, parentMask);
             }
