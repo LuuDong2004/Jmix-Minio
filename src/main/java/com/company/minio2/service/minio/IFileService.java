@@ -16,4 +16,5 @@ public interface IFileService {
     void createNewObject(String bucket,String prefix, String objectKey);
     List<ObjectDto> search(String bucket, String prefix, String nameFragment);
     String download(String bucket, String objectKey, int expirySeconds);
+    ObjectDto getObjectDetail(String bucket, String objectKey);
 }

@@ -1,7 +1,6 @@
 package com.company.minio2.service.minio.impl;
 
 import com.company.minio2.config.MinioStorageProperties;
-import com.company.minio2.dto.DownloadDTO;
 import com.company.minio2.dto.ObjectDto;
 import com.company.minio2.dto.TreeNode;
 import com.company.minio2.exception.MinioException;
@@ -10,14 +9,12 @@ import io.minio.*;
 import io.minio.http.Method;
 import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
-import jakarta.validation.constraints.Min;
 import org.springframework.stereotype.Service;
-
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Supplier;
+
 
 
 @Service
@@ -265,6 +262,40 @@ public class FileServiceImpl implements IFileService {
             );
         } catch (Exception e) {
             throw new MinioException("Presigned GET failed: " + objectKey + " in bucket=" + bucket, e);
+        }
+    }
+
+    @Override
+    public ObjectDto getObjectDetail(String bucket, String objectKey) {
+        try {
+            StatObjectResponse response = minioClient.statObject(
+                    StatObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .build()
+            );
+
+            ObjectDto object = new ObjectDto();
+            object.setKey(objectKey);
+            object.setName(extractDisplayName(null, objectKey));
+            object.setType(TreeNode.FILE);
+            object.setSize(response.size());
+            object.setLastModified(response.lastModified().toLocalDateTime());
+
+            // Store additional metadata in the path field (ETag, Content-Type, etc.)
+            StringBuilder metadata = new StringBuilder();
+            metadata.append("ETag: ").append(response.etag());
+            if (response.contentType() != null && !response.contentType().isEmpty()) {
+                metadata.append(" | Content-Type: ").append(response.contentType());
+            }
+            if (response.userMetadata() != null && !response.userMetadata().isEmpty()) {
+                metadata.append(" | User Metadata: ").append(response.userMetadata());
+            }
+            object.setPath(metadata.toString());
+
+            return object;
+        } catch (Exception e) {
+            throw new MinioException("Không lấy được dữ liệu object", e);
         }
     }
 
