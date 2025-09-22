@@ -903,14 +903,6 @@ public class MinioView extends StandardView {
             Notification.show("Tải xuống thất bại: " + e.getMessage());
         }
     }
-
-
-    //action upload file - data
-    @Subscribe("objects.upload")
-    public void onObjectsUpload(ActionPerformedEvent event) {
-
-    }
-
     //action tạo mới bucket
     @Subscribe("buckets.create")
     public void onBucketsCreate(final ActionPerformedEvent event) {
