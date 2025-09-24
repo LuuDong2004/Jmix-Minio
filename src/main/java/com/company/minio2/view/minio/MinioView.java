@@ -117,7 +117,9 @@ public class MinioView extends StandardView {
 
     @ViewComponent("fileUpload")
     private Upload fileUpload;
+
     private MultiFileMemoryBuffer fileBuffer;
+    
     @Autowired
     private Dialogs dialogs;
     @Autowired
@@ -130,20 +132,21 @@ public class MinioView extends StandardView {
     private ViewMode currentViewMode = ViewMode.DETAILS;
 
     private DataGrid.Column<ObjectDto> nameComponentColumn;
+
     @ViewComponent("iconContainer")
     private HorizontalLayout iconContainer;
+
     private String selectedIconItemId;
+
     @Subscribe
     public void onInit(InitEvent event) {
         loadAllBuckets();
         viewItemFile();
         viewItemObject();
-
         metadataPanel.setVisible(false);
         metadataVisible = false;
         toggleMetadataBtn.setText("Show");
         clearMetadata();
-
         //upload file - oninit
         fileBuffer = new MultiFileMemoryBuffer();
         fileUpload.getElement().setProperty("directory", true);
@@ -175,7 +178,6 @@ public class MinioView extends StandardView {
             fileBuffer = new MultiFileMemoryBuffer();
             fileUpload.setReceiver(fileBuffer);
         });
-
         // init view mode selector
         if (viewMode != null) {
             viewMode.setItems("DETAILS", "LIST", "MEDIUM_ICONS", "LARGE_ICONS");
@@ -207,7 +209,6 @@ public class MinioView extends StandardView {
         return prefix.endsWith("/") ? prefix + fileName : prefix + "/" + fileName;
     }
 
-
     //load all bucket - minio
     private void loadAllBuckets() {
         try {
@@ -226,7 +227,6 @@ public class MinioView extends StandardView {
            notifications.show("Load buckets failed: " + e.getMessage());
         }
     }
-
 
     //load all object theo bucket name
     private void loadObjectFromBucket() {
@@ -267,7 +267,6 @@ public class MinioView extends StandardView {
             String metadataString = fileMetadata.getPath();
             String etag = "N/A";
             String contentType = "N/A";
-            
             if (metadataString != null && !metadataString.isEmpty()) {
                 String[] parts = metadataString.split(" \\| ");
                 for (String part : parts) {
@@ -278,10 +277,8 @@ public class MinioView extends StandardView {
                     }
                 }
             }
-            
             metadataETag.setText(etag);
             metadataContentType.setText(contentType);
-            
             // Show the metadata panel if it's hidden
             if (!metadataVisible) {
                 metadataVisible = true;
@@ -325,7 +322,6 @@ public class MinioView extends StandardView {
         } catch (Exception e) {
             notifications.show("Load buckets failed: " + e.getMessage());
         }
-
     }
 
     //tạo bucket
@@ -363,8 +359,6 @@ public class MinioView extends StandardView {
         }
         String prefix = prefixField != null ? prefixField.getValue() : null;
         String nameFragment = (prefixField != null) ? prefixField.getValue() : "";
-
-
         try {
             List<ObjectDto> results = fileService.search(currentBucket, prefix, nameFragment);
             objectDc.setItems(results);
@@ -373,7 +367,6 @@ public class MinioView extends StandardView {
         } catch (Exception e) {
            notifications.show("Search failed: " + e.getMessage());
         }
-
         updateState(currentBucket, prefixField != null ? prefixField.getValue() : currentPrefix);
         refreshFiles();
         applyViewMode();
@@ -452,7 +445,6 @@ public class MinioView extends StandardView {
     public void onBucketsItemClick(final ItemClickEvent<BucketDto> event) {
         BucketDto item = event.getItem();
         if (item == null) return;
-
         if (TreeNode.BUCKET.equals(item.getType())) {
             updateState(item.getBucketName(), "");
 //            Notification.show("name: " + this.currentBucket);
@@ -485,7 +477,6 @@ public class MinioView extends StandardView {
         layout.setAlignItems(FlexComponent.Alignment.CENTER);
         layout.setPadding(false);
         layout.setSpacing(true);
-
         Icon icon = buildIcon(item.getType(), 16, null);
         icon.getElement().getStyle().set("flex-shrink", "0");
         Span text = new Span(item.getBucketName() != null ? item.getBucketName() : "");
@@ -498,7 +489,6 @@ public class MinioView extends StandardView {
         layout.setAlignItems(FlexComponent.Alignment.CENTER);
         layout.setPadding(false);
         layout.setSpacing(true);
-
         int px = switch (currentViewMode) {
             case LARGE_ICONS -> 48;
             case MEDIUM_ICONS -> 28;
@@ -506,7 +496,6 @@ public class MinioView extends StandardView {
         };
         Icon icon = buildIcon(item.getType(), px, null);
         icon.getElement().getStyle().set("flex-shrink", "0");
-
         Span text = new Span(item.getName() != null ? item.getName() : "");
         layout.add(icon, text);
         return layout;
@@ -518,16 +507,13 @@ public class MinioView extends StandardView {
         DataGrid.Column<ObjectDto> sizeCol = objects.getColumnByKey("size");
         DataGrid.Column<ObjectDto> typeCol = objects.getColumnByKey("type");
         DataGrid.Column<ObjectDto> dateCol = objects.getColumnByKey("lastModified");
-
         boolean details = isDetailsMode();
         boolean list = isListMode();
         boolean iconMode = isIconMode();
-
         // only show extra columns in DETAILS
         if (sizeCol != null) sizeCol.setVisible(details);
         if (typeCol != null) typeCol.setVisible(details);
         if (dateCol != null) dateCol.setVisible(details);
-
         // Update name column header
         if (nameComponentColumn == null) {
             // try to find component column as fallback
@@ -542,7 +528,6 @@ public class MinioView extends StandardView {
                 nameComponentColumn.setHeader("");
             }
         }
-
         switchObjectsContainerVisibility(iconMode);
         updateObjectsView();
     }
@@ -555,10 +540,8 @@ public class MinioView extends StandardView {
         iconContainer.setSpacing(false);
         iconContainer.getStyle().set("flex-wrap", "wrap");
         iconContainer.getStyle().set("gap", "2px");
-
         int iconPx = currentViewMode == ViewMode.LARGE_ICONS ? 64 : 40;
         int boxW = currentViewMode == ViewMode.LARGE_ICONS ? 92 : currentViewMode == ViewMode.MEDIUM_ICONS ? 72 : 220;
-
         List<ObjectDto> items = objectDc.getItems();
         if (items == null) return;
         for (ObjectDto it : items) {
@@ -570,16 +553,13 @@ public class MinioView extends StandardView {
             box.setWidth(boxW + "px");
             box.setHeight(null);
             box.setMargin(false);
-
             // inner content to control selection highlight area tightly
             VerticalLayout content = new VerticalLayout();
             content.setPadding(false);
             content.setSpacing(false);
             content.setAlignItems(FlexComponent.Alignment.CENTER);
             content.addClassName("icon-card-inner");
-
             Icon icon = buildIcon(it.getType(), iconPx, "icon");
-
             Span label = new Span(it.getName() != null ? it.getName() : "");
             label.addClassName("icon-title");
             label.setWidthFull();
@@ -591,10 +571,8 @@ public class MinioView extends StandardView {
             label.getStyle().set("-webkit-line-clamp", "2");
             label.getStyle().set("-webkit-box-orient", "vertical");
             label.getStyle().set("overflow", "hidden");
-
             content.add(icon, label);
             box.add(content);
-
             box.addClickListener(e -> {
                 selectedIconItemId = stableItemId(it);
                 if (it.getType() == TreeNode.FOLDER) {
@@ -607,7 +585,6 @@ public class MinioView extends StandardView {
             });
 
             attachIconContextMenu(box, it);
-
             // highlight selection
             if (stableItemId(it).equals(selectedIconItemId)) {
                 content.getStyle().set("outline", "2px solid var(--lumo-primary-color)");
@@ -850,7 +827,6 @@ public class MinioView extends StandardView {
                 })
                 .open();
     }
-
 
     //action xóa file - data
     @Subscribe("objects.delete")

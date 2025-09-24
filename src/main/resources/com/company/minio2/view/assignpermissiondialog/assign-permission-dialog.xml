@@ -60,13 +60,13 @@
             </loader>
         </collection>
     </data>
-    <layout height="500px" width="500px">
-        <textArea id="fileKeyArea" label="Object key: " readOnly="true" width="100%"/>
+    <layout height="500px" width="520px ">
+        <textArea id="fileKeyArea" label="Object key: " readOnly="true" width="500px"/>
         <hbox spacing="true">
             <button id="usersBtn" text="Users"/>
             <button id="rolesBtn" text="Roles"/>
         </hbox>
-        <vbox spacing="true" width="100%" height="400px" >
+        <vbox spacing="true" width="500px" height="400px" >
             <dataGrid id="objectDTODataGrid" dataContainer="objectDtosDc" width="100%" height="200px">
                 <columns>
                     <column property="name" header="Name"/>
@@ -74,10 +74,11 @@
                 </columns>
             </dataGrid>
         </vbox>
-        <hbox spacing="true">
+        <span text="To change permissions, click Edit" alignSelf="START"/>
+        <hbox spacing="true" alignSelf="END" height="50px" width="80px">
             <button id="editBtn" text="Edit"/>
         </hbox>
-        <vbox width="100%" height="100%">
+        <vbox width="500px" height="225px" >
             <dataGrid id="permissionDataGrid" dataContainer="permissionsDc">
                 <columns>
                     <column property="permissionType" header="Permission" width="50%"/>

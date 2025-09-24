@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<view xmlns="http://jmix.io/schema/flowui/view"
+      title="Security">
+    <layout>
+        <span id="message"
+                text="⚠ This will replace explicitly defined permissions on all descendants of this object with inheritable permissions from"/>
+        <label text="Do you wish to continue?"/>
+
+        <hbox alignSelf="END">
+        <button id="yesBtn"
+                text="Yes" alignSelf="END"/>
+        <button id="noBtn"
+                text="No" alignSelf="END"/>
+        </hbox>
+    </layout>
+</view>

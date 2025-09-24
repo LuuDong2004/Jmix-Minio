@@ -4,6 +4,7 @@ package com.company.minio2.view.advancesecurity;
 import com.company.minio2.entity.*;
 import com.company.minio2.service.minio.SecurityService;
 import com.company.minio2.view.blockinheritance.BlockInheritance;
+import com.company.minio2.view.confirmreplacedialog.ConfirmReplaceDialog;
 import com.company.minio2.view.main.MainView;
 import com.vaadin.flow.component.ClickEvent;
 import com.vaadin.flow.component.textfield.TextArea;
@@ -180,21 +181,52 @@ public class AdvanceSecurity extends StandardView {
 
     @Subscribe(id = "applyBtn", subject = "clickListener")
     public void onApplyBtnClick(final ClickEvent<JmixButton> event) {
+//        Permission permission = permissionDataGrid.getSingleSelectedItem();
+//        if (permission == null) return;
+//        boolean replace = Boolean.TRUE.equals(replaceChildPermissions.getValue());
+//        if (replace) {
+//            securityService.replaceChildPermissions(
+//                    permission.getUser(),permission.getFilePath(), permission.getPermissionMask());
+//        } else {
+//            securityService.savePermission(
+//                    Collections.singleton(permission),
+//                    permission.getUser(),
+//                    permission.getFilePath()
+//            );
+//        }
+//        permissionsDl.load();
+//        close(StandardOutcome.SAVE);
         Permission permission = permissionDataGrid.getSingleSelectedItem();
-        if (permission == null) return;
-        boolean replace = Boolean.TRUE.equals(replaceChildPermissions.getValue());
-        if (replace) {
-            securityService.replaceChildPermissions(
-                    permission.getUser(),permission.getFilePath(), permission.getPermissionMask());
-        } else {
-            securityService.savePermission(
-                    Collections.singleton(permission),
-                    permission.getUser(),
-                    permission.getFilePath()
-            );
+        if (permission == null) {
+            return;
         }
-        permissionsDl.load();
-        close(StandardOutcome.SAVE);
+        String folderName = filePath;
+        if (folderName != null && !folderName.isBlank()) {
+            // Bỏ dấu '/' cuối nếu có
+            if (folderName.endsWith("/")) {
+                folderName = folderName.substring(0, folderName.length() - 1);
+            }
+            // Lấy phần sau cùng
+            int lastSlash = folderName.lastIndexOf('/');
+            if (lastSlash >= 0 && lastSlash < folderName.length() - 1) {
+                folderName = folderName.substring(lastSlash + 1);
+            }
+        }
+
+        DialogWindow<ConfirmReplaceDialog> window = dialogWindows.view(this, ConfirmReplaceDialog.class).build();
+        window.getView().setPath(folderName);
+        window.getView().setFilePath(permission.getFilePath());
+        window.getView().setUser(permission.getUser());
+        window.getView().setPermissionMask(permission.getPermissionMask());
+
+        // sau khi đóng dialog -> reload lại danh sách
+        window.addAfterCloseListener(e -> {
+            if (e.closedWith(StandardOutcome.SAVE)) {
+                permissionsDl.load();
+            }
+        });
+
+        window.open();
     }
 
     @Subscribe(id = "cancelBtn", subject = "clickListener")
