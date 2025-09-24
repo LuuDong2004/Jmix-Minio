@@ -130,6 +130,7 @@ public class MinioView extends StandardView {
     private ViewMode currentViewMode = ViewMode.DETAILS;
 
     private DataGrid.Column<ObjectDto> nameComponentColumn;
+
     @ViewComponent("iconContainer")
     private HorizontalLayout iconContainer;
     private String selectedIconItemId;
@@ -139,15 +140,15 @@ public class MinioView extends StandardView {
         viewItemFile();
         viewItemObject();
 
-        metadataPanel.setVisible(false);
+        metadataPanel.setVisible(false); // Ẩn panel metadata ban đầu
         metadataVisible = false;
         toggleMetadataBtn.setText("Show");
         clearMetadata();
 
         //upload file - oninit
-        fileBuffer = new MultiFileMemoryBuffer();
-        fileUpload.getElement().setProperty("directory", true);
-        fileUpload.setDropAllowed(true);
+        fileBuffer = new MultiFileMemoryBuffer(); // khởi tạo
+        fileUpload.getElement().setProperty("directory", true); // set upload
+        fileUpload.setDropAllowed(true); //  cho phép kéo thả thư mục , file
         fileUpload.setReceiver(fileBuffer);
         fileUpload.setMaxFileSize(100 * 1024 * 1024); // 100MB mỗi file
         fileUpload.setMaxFiles(Integer.MAX_VALUE);
@@ -189,10 +190,10 @@ public class MinioView extends StandardView {
                 }
             }
             viewMode.addValueChangeListener(e -> {
-                String v = e.getValue();
-                if (v == null) return;
+                String value = e.getValue();
+                if (value == null) return;
                 try {
-                    currentViewMode = ViewMode.valueOf(v);
+                    currentViewMode = ViewMode.valueOf(value);
                 } catch (IllegalArgumentException ex) {
                     currentViewMode = ViewMode.DETAILS;
                 }
@@ -523,26 +524,24 @@ public class MinioView extends StandardView {
         boolean list = isListMode();
         boolean iconMode = isIconMode();
 
-        // only show extra columns in DETAILS
+
+        // chỉ hiển thị các cột này ở chế độ details
         if (sizeCol != null) sizeCol.setVisible(details);
         if (typeCol != null) typeCol.setVisible(details);
         if (dateCol != null) dateCol.setVisible(details);
 
-        // Update name column header
-        if (nameComponentColumn == null) {
-            // try to find component column as fallback
-            nameComponentColumn = objects.getColumns().stream()
-                    .filter(c -> c.getKey() == null) // component column usually has no property key
-                    .findFirst().orElse(null);
-        }
+//        if (nameComponentColumn == null) {
+//            nameComponentColumn = objects.getColumns().stream()
+//                    .filter(c -> c.getKey() == null) // component column usually has no property key
+//                    .findFirst().orElse(null);
+//        }
         if (nameComponentColumn != null) {
             if (details || list) {
-                nameComponentColumn.setHeader("File");
+                nameComponentColumn.setHeader("Name");
             } else {
                 nameComponentColumn.setHeader("");
             }
         }
-
         switchObjectsContainerVisibility(iconMode);
         updateObjectsView();
     }
@@ -553,7 +552,7 @@ public class MinioView extends StandardView {
         iconContainer.addClassName("icon-container");
         iconContainer.setPadding(false);
         iconContainer.setSpacing(false);
-        iconContainer.getStyle().set("flex-wrap", "wrap");
+        iconContainer.getStyle().set("flex-wrap", "wrap"); // để các icon tự động xuống dòng khi hết chỗ
         iconContainer.getStyle().set("gap", "2px");
 
         int iconPx = currentViewMode == ViewMode.LARGE_ICONS ? 64 : 40;
@@ -571,7 +570,6 @@ public class MinioView extends StandardView {
             box.setHeight(null);
             box.setMargin(false);
 
-            // inner content to control selection highlight area tightly
             VerticalLayout content = new VerticalLayout();
             content.setPadding(false);
             content.setSpacing(false);
@@ -615,11 +613,9 @@ public class MinioView extends StandardView {
                 content.getStyle().set("border-radius", "6px");
                 content.getStyle().set("padding", "4px");
             }
-
             iconContainer.add(box);
         }
     }
-
     private void updateObjectsView() {
         if (isIconMode()) {
             renderIcons();
