@@ -73,39 +73,39 @@ public class MinioController {
         }
     }
 
-    @DeleteMapping(value = "/delete", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<Map<String, Object>> delete(
-            @RequestParam String bucket,
-            @RequestParam String objectKey) {
-        try {
-            fileService.delete(bucket, objectKey);
-            Map<String, Object> response = new HashMap<>();
-            response.put("success", true);
-            response.put("bucket", bucket);
-            response.put("objectKey", objectKey);
-            response.put("message", objectKey.endsWith("/") ? "Đã xóa folder" : "Đã xóa file");
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            Map<String, Object> err = new HashMap<>();
-            err.put("success", false);
-            err.put("bucket", bucket);
-            err.put("objectKey", objectKey);
-            err.put("error", e.getMessage());
-            return ResponseEntity.badRequest().body(err);
-        }
-    }
+//    @DeleteMapping(value = "/delete", produces = MediaType.APPLICATION_JSON_VALUE)
+//    public ResponseEntity<Map<String, Object>> delete(
+//            @RequestParam String bucket,
+//            @RequestParam String objectKey) {
+//        try {
+//            fileService.delete(bucket, objectKey);
+//            Map<String, Object> response = new HashMap<>();
+//            response.put("success", true);
+//            response.put("bucket", bucket);
+//            response.put("objectKey", objectKey);
+//            response.put("message", objectKey.endsWith("/") ? "Đã xóa folder" : "Đã xóa file");
+//            return ResponseEntity.ok(response);
+//        } catch (Exception e) {
+//            Map<String, Object> err = new HashMap<>();
+//            err.put("success", false);
+//            err.put("bucket", bucket);
+//            err.put("objectKey", objectKey);
+//            err.put("error", e.getMessage());
+//            return ResponseEntity.badRequest().body(err);
+//        }
+//    }
 
-    @PostMapping(value = "/create-folder")
-    public ResponseEntity<?> createNewFolder(@RequestParam String bucket,
-                                             @RequestParam String prefix,
-                                             @RequestParam String folderName) {
-        try {
-            fileService.createNewObject(bucket, prefix, folderName);
-            return ResponseEntity.ok().build();
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
-        }
-    }
+//    @PostMapping(value = "/create-folder")
+//    public ResponseEntity<?> createNewFolder(@RequestParam String bucket,
+//                                             @RequestParam String prefix,
+//                                             @RequestParam String folderName) {
+//        try {
+//            fileService.createNewObject(bucket, prefix, folderName);
+//            return ResponseEntity.ok().build();
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().build();
+//        }
+//    }
 
     @GetMapping(value = "/get-all-bucket")
     public ResponseEntity<?> listBuccket() {
