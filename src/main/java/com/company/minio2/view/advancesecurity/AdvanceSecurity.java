@@ -2,6 +2,7 @@ package com.company.minio2.view.advancesecurity;
 
 
 import com.company.minio2.entity.*;
+import com.company.minio2.entity.Object;
 import com.company.minio2.service.minio.SecurityService;
 import com.company.minio2.view.blockinheritance.BlockInheritance;
 import com.company.minio2.view.confirmreplacedialog.ConfirmReplaceDialog;
@@ -18,8 +19,6 @@ import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.model.CollectionLoader;
 import io.jmix.flowui.view.*;
 import org.springframework.beans.factory.annotation.Autowired;
-
-import java.util.Collections;
 
 @Route(value = "advance-security", layout = MainView.class)
 @ViewController(id = "AdvanceSecurity")
@@ -46,11 +45,11 @@ public class AdvanceSecurity extends StandardView {
 
     String filePath = "";
 
-    private ObjectDTO target;
+    private Object target;
     @ViewComponent
     private CollectionLoader<Permission> permissionsDl;
 
-    public void setTarget(ObjectDTO target) {
+    public void setTarget(Object target) {
         this.target = target;
     }
 

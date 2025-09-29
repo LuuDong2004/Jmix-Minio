@@ -4,7 +4,7 @@ import io.jmix.core.entity.annotation.JmixId;
 import io.jmix.core.metamodel.annotation.JmixEntity;
 
 @JmixEntity
-public class ObjectDTO {
+public class Object {
 
     @JmixId
     private String id;
@@ -13,10 +13,10 @@ public class ObjectDTO {
 
     private Boolean selected;
 
-    public ObjectDTO() {
+    public Object() {
     }
 
-    public ObjectDTO(String id, ObjectType type, String name) {
+    public Object(String id, ObjectType type, String name) {
         this.id = id;
         this.type = type;
         this.name = name;

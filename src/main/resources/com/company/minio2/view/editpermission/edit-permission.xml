@@ -38,7 +38,7 @@
             </loader>
         </collection>
         <collection id="objectDtosDc"
-                    class="com.company.minio2.entity.ObjectDTO">
+                    class="com.company.minio2.entity.Object">
 
         </collection>
         <collection id="rolesDc"

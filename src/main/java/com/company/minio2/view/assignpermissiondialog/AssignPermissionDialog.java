@@ -1,6 +1,7 @@
 package com.company.minio2.view.assignpermissiondialog;
 
 import com.company.minio2.entity.*;
+import com.company.minio2.entity.Object;
 import com.company.minio2.service.minio.SecurityService;
 import com.company.minio2.view.advancesecurity.AdvanceSecurity;
 import com.company.minio2.view.editpermission.EditPermission;
@@ -63,10 +64,10 @@ public class AssignPermissionDialog extends StandardView {
     private DataGrid<Permission> permissionDataGrid;
 
     @ViewComponent
-    private DataGrid<ObjectDTO> objectDTODataGrid;
+    private DataGrid<Object> objectDTODataGrid;
 
     @ViewComponent
-    private CollectionContainer<ObjectDTO> objectDtosDc;
+    private CollectionContainer<Object> objectDtosDc;
 
     public void setFilePath(String filePath) {
         this.filePath = filePath;
@@ -78,7 +79,7 @@ public class AssignPermissionDialog extends StandardView {
 
     @Subscribe(id = "editBtn", subject = "clickListener")
     public void onEditBtnClick(final ClickEvent<JmixButton> event) {
-        ObjectDTO seleted = objectDTODataGrid.getSingleSelectedItem();
+        Object seleted = objectDTODataGrid.getSingleSelectedItem();
         DialogWindow<EditPermission> window = dialogWindows.view(this, EditPermission.class).build();
         window.getView().setFilePath(filePath);
         window.getView().setTarget(seleted);
@@ -123,9 +124,9 @@ public class AssignPermissionDialog extends StandardView {
 
         // Lắng nghe khi chọn User/Role
         objectDTODataGrid.addSelectionListener(selection -> {
-            Optional<ObjectDTO> optional = selection.getFirstSelectedItem();
+            Optional<Object> optional = selection.getFirstSelectedItem();
             if (optional.isPresent()) {
-                ObjectDTO dto = optional.get();
+                Object dto = optional.get();
 
                 CollectionContainer<Permission> permissionsDc =
                         getViewData().getContainer("permissionsDc");
@@ -190,8 +191,8 @@ public class AssignPermissionDialog extends StandardView {
         usersDl.setParameter("filePath", filePath);
         usersDl.load();
         List<User> userList = usersDl.getContainer().getItems();
-        List<ObjectDTO> dtos = userList.stream().map(
-                u -> new ObjectDTO(u.getId().toString(), ObjectType.USER, u.getUsername())
+        List<Object> dtos = userList.stream().map(
+                u -> new Object(u.getId().toString(), ObjectType.USER, u.getUsername())
         ).toList();
         objectDtosDc.setItems(dtos);
     }
@@ -201,8 +202,8 @@ public class AssignPermissionDialog extends StandardView {
         rolesDl.setParameter("filePath", filePath);
         rolesDl.load();
         List<ResourceRoleEntity> roles = rolesDl.getContainer().getItems();
-        List<ObjectDTO> objectDTOs = roles.stream().map(
-                r -> new ObjectDTO(r.getId().toString(), ObjectType.ROLE, r.getName())).toList();
+        List<Object> objectDTOs = roles.stream().map(
+                r -> new Object(r.getId().toString(), ObjectType.ROLE, r.getName())).toList();
         objectDtosDc.setItems(objectDTOs);
     }
 
@@ -217,7 +218,7 @@ public class AssignPermissionDialog extends StandardView {
 
     @Subscribe(id = "advanceBtn", subject = "clickListener")
     public void onAdvanceBtnClick(final ClickEvent<JmixButton> event) {
-        ObjectDTO seleted = objectDTODataGrid.getSingleSelectedItem();
+        Object seleted = objectDTODataGrid.getSingleSelectedItem();
         DialogWindow<AdvanceSecurity> window = dialogWindows.view(this, AdvanceSecurity.class).build();
         window.getView().setFilePath(filePath);
         window.getView().setTarget(seleted);

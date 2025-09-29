@@ -37,7 +37,7 @@
             </loader>
         </collection>
         <collection id="objectDtosDc"
-                    class="com.company.minio2.entity.ObjectDTO">
+                    class="com.company.minio2.entity.Object">
         </collection>
         <collection id="rolesDc"
                     class="io.jmix.securitydata.entity.ResourceRoleEntity">
@@ -74,8 +74,8 @@
                 </columns>
             </dataGrid>
         </vbox>
-        <span text="To change permissions, click Edit" alignSelf="START"/>
-        <hbox spacing="true" alignSelf="END" height="50px" width="80px">
+        <hbox width="100%" justifyContent="BETWEEN" alignItems="CENTER">
+            <span text="To change permissions, click Edit"/>
             <button id="editBtn" text="Edit"/>
         </hbox>
         <vbox width="500px" height="225px" >

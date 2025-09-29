@@ -1,15 +1,19 @@
 package com.company.minio2.view.minio;
 
 import com.company.minio2.dto.ObjectDto;
+import com.company.minio2.entity.PermissionType;
 import com.company.minio2.service.minio.IBucketService;
 import com.company.minio2.service.minio.IFileService;
+import com.company.minio2.service.minio.SecurityService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
+import java.security.Principal;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -18,6 +22,10 @@ import java.util.Map;
 public class MinioController {
 
     private final IFileService fileService;
+
+    @Autowired
+    private SecurityService securityService;
+
     @Autowired
     private IBucketService bucketService;
 
@@ -29,7 +37,17 @@ public class MinioController {
             produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ObjectDto> upload(@RequestParam String bucket,
                                             @RequestParam(required = false) String prefix,
-                                            @RequestPart("file") MultipartFile file) {
+                                            @RequestPart("file") MultipartFile file,
+                                            Principal principal) {
+
+        String username = principal.getName();
+        String filePath = bucket + "/" + (prefix == null ? "" : prefix);
+
+        if (!securityService.hasPermission(username, PermissionType.CREATE, bucket, prefix)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(null);
+        }
+
         try (InputStream in = file.getInputStream()) {
             String filename = (file.getOriginalFilename() != null && !file.getOriginalFilename().isBlank())
                     ? file.getOriginalFilename() : "unnamed";
@@ -88,41 +106,98 @@ public class MinioController {
             return ResponseEntity.badRequest().build();
         }
     }
+
     @GetMapping(value = "/get-all-bucket")
     public ResponseEntity<?> listBuccket() {
         try {
             return ResponseEntity.ok(bucketService.getAllBuckets());
-        }catch (Exception e){
-            return ResponseEntity.badRequest().build();
-        }
-    }
-    @DeleteMapping(value = "/delete-bucket")
-    public ResponseEntity<?> removeBucket(@RequestParam String bucketName) {
-        try {
-            bucketService.removeBucket(bucketName);
-            return ResponseEntity.ok().build();
-        }catch(Exception e){
+        } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }
     }
 
-    @PostMapping(value = "/create-bucket")
-    public ResponseEntity<?> createBucket(@RequestParam String bucketName) {
-        try{
-            bucketService.createBucket(bucketName);
+    @DeleteMapping(value = "/delete", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> delete(
+            @RequestParam String bucket,
+            @RequestParam String objectKey,
+            Principal principal) {
+
+        String username = principal.getName();
+        if (!securityService.hasPermission(username, PermissionType.MODIFY, bucket, objectKey)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("success", false, "message", "Không có quyền xóa"));
+        }
+
+        try {
+            bucketService.removeBucket(bucket);
             return ResponseEntity.ok().build();
-        }catch(Exception e){
+        } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }
     }
+
+
+//    @DeleteMapping(value = "/delete-bucket")
+//    public ResponseEntity<?> removeBucket(@RequestParam String bucketName) {
+//        try {
+//            bucketService.removeBucket(bucketName);
+//            return ResponseEntity.ok().build();
+//        } catch (Exception e) {
+//            return ResponseEntity.badRequest().build();
+//        }
+//    }
+
+    @PostMapping(value = "/create-folder")
+    public ResponseEntity<?> createNewFolder(@RequestParam String bucket,
+                                             @RequestParam String prefix,
+                                             @RequestParam String folderName,
+                                             Principal principal) {
+        String username = principal.getName();
+        if (!securityService.hasPermission(username, PermissionType.CREATE, bucket, prefix)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("success", false, "message", "Không có quyền tạo folder"));
+        }
+        try {
+            bucketService.createBucket(bucket);
+            return ResponseEntity.ok().build();
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+
+//    @PostMapping(value = "/create-bucket")
+//    public ResponseEntity<?> createBucket(@RequestParam String bucketName) {
+//        try{
+//            bucketService.createBucket(bucketName);
+//            return ResponseEntity.ok().build();
+//        }catch(Exception e){
+//            return ResponseEntity.badRequest().build();
+//        }
+//    }
 
     @GetMapping(value = "/get-objects")
     public ResponseEntity<?> getAllFromBucket(@RequestParam String bucket,
-                                              @RequestParam String prefix){
-        try{
+                                              @RequestParam String prefix,
+                                              Principal principal) {
+        String username = principal.getName();
+
+        if (!securityService.hasPermission(username, PermissionType.READ, bucket, prefix)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of(
+                            "success", false,
+                            "message", "Bạn không có quyền đọc folder này",
+                            "bucket", bucket,
+                            "prefix", prefix
+                    ));
+        }
+
+        try {
             return ResponseEntity.ok(fileService.getAllFromBucket(bucket, prefix));
-        }catch(Exception e){
+        } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }
     }
+
+
 }

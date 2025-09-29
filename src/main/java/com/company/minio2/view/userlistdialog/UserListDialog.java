@@ -1,7 +1,7 @@
 package com.company.minio2.view.userlistdialog;
 
 
-import com.company.minio2.entity.ObjectDTO;
+import com.company.minio2.entity.Object;
 import com.company.minio2.entity.ObjectType;
 import com.company.minio2.entity.Permission;
 import com.company.minio2.entity.User;
@@ -43,10 +43,10 @@ public class UserListDialog extends StandardView {
     private User selectedUser;
 
     @ViewComponent
-    private DataGrid<ObjectDTO> objectDTODataGrid;
+    private DataGrid<Object> objectDTODataGrid;
 
     @ViewComponent
-    private CollectionContainer<ObjectDTO> objectDtosDc;
+    private CollectionContainer<Object> objectDtosDc;
 
     @Autowired
     private DataManager dataManager;
@@ -88,9 +88,9 @@ public class UserListDialog extends StandardView {
         usersDl.setParameter("filePath", filePath);
         usersDl.load();
         List<User> users = usersDl.getContainer().getItems();
-        List<ObjectDTO> dtos = new ArrayList<>();
+        List<Object> dtos = new ArrayList<>();
         for (User u : users) {
-            ObjectDTO dto = new ObjectDTO();
+            Object dto = new Object();
             dto.setId(u.getId().toString());   // để sau này load User
             dto.setName(u.getUsername());
             dto.setType(ObjectType.USER);
@@ -104,9 +104,9 @@ public class UserListDialog extends StandardView {
         rolesDl.setParameter("filePath", filePath);
         rolesDl.load();
         List<ResourceRoleEntity> roles = rolesDl.getContainer().getItems();
-        List<ObjectDTO> dtos = new ArrayList<>();
+        List<Object> dtos = new ArrayList<>();
         for (ResourceRoleEntity r : roles) {
-            ObjectDTO dto = new ObjectDTO();
+            Object dto = new Object();
             dto.setId(r.getCode());    // code dùng làm key cho role
             dto.setName(r.getName());
             dto.setType(ObjectType.ROLE);
@@ -117,8 +117,8 @@ public class UserListDialog extends StandardView {
 
     @Subscribe(id = "applyBtn", subject = "clickListener")
     public void onApplyBtnClick(final ClickEvent<JmixButton> event) {
-        List<ObjectDTO> selectedObjects = new ArrayList<>();
-        for (ObjectDTO dto : objectDtosDc.getItems()) {
+        List<Object> selectedObjects = new ArrayList<>();
+        for (Object dto : objectDtosDc.getItems()) {
             if (Boolean.TRUE.equals(dto.getSelected())) {
                 selectedObjects.add(dto);
             }
@@ -127,7 +127,7 @@ public class UserListDialog extends StandardView {
         // 2 biến để sau reload
         User selectedUser = null;
         String selectedRoleCode = null;
-        for (ObjectDTO dto : selectedObjects) {
+        for (Object dto : selectedObjects) {
             Permission p = dataManager.create(Permission.class);
             p.setFilePath(filePath);
             if (dto.getType() == ObjectType.USER) {

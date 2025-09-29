@@ -134,6 +134,22 @@ public class SecurityService {
         }
     }
 
+    public boolean hasPermission(String username, PermissionType type, String bucket, String prefix) {
+        if (username == null || bucket == null) return false;
+
+        User user = dataManager.load(User.class)
+                .query("select u from User u where u.username = :username")
+                .parameter("username", username)
+                .optional()
+                .orElse(null);
+
+        if (user == null) return false;
+
+        String filePath = bucket + (prefix == null || prefix.isBlank() ? "" : "/" + prefix);
+        return hasPermission(user, type, filePath);
+    }
+
+
     private void normalizePermissions(Collection<Permission> permissions) {
         boolean readDenied = permissions.stream()
                 .anyMatch(p -> p.getPermissionType() == PermissionType.READ && Boolean.FALSE.equals(p.getAllow()));

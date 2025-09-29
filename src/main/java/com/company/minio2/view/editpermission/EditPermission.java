@@ -2,6 +2,7 @@ package com.company.minio2.view.editpermission;
 
 
 import com.company.minio2.entity.*;
+import com.company.minio2.entity.Object;
 import com.company.minio2.service.minio.SecurityService;
 import com.company.minio2.view.main.MainView;
 import com.company.minio2.view.userlistdialog.UserListDialog;
@@ -60,10 +61,10 @@ public class EditPermission extends StandardView {
     private DataGrid<Permission> permissionDataGrid;
 
     @ViewComponent
-    private DataGrid<ObjectDTO> objectDTODataGrid;
+    private DataGrid<Object> objectDTODataGrid;
 
     @ViewComponent
-    private CollectionContainer<ObjectDTO> objectDtosDc;
+    private CollectionContainer<Object> objectDtosDc;
 
     @ViewComponent
     private DataGrid<User> usersDataGrid;
@@ -71,7 +72,7 @@ public class EditPermission extends StandardView {
     @ViewComponent
     private CollectionLoader<ResourceRoleEntity> rolesDl;
 
-    private ObjectDTO target;
+    private Object target;
 
     @ViewComponent
     private CollectionContainer<Permission> permissionsDc;
@@ -84,7 +85,7 @@ public class EditPermission extends StandardView {
         this.username = username;
     }
 
-    public void setTarget(ObjectDTO target) {
+    public void setTarget(Object target) {
         this.target = target;
     }
 
@@ -147,9 +148,9 @@ public class EditPermission extends StandardView {
 
         // Lắng nghe khi chọn User/Role
         objectDTODataGrid.addSelectionListener(selection -> {
-            Optional<ObjectDTO> optional = selection.getFirstSelectedItem();
+            Optional<Object> optional = selection.getFirstSelectedItem();
             if (optional.isPresent()) {
-                ObjectDTO dto = optional.get();
+                Object dto = optional.get();
 
                 CollectionContainer<Permission> permissionsDc =
                         getViewData().getContainer("permissionsDc");
@@ -220,9 +221,9 @@ public class EditPermission extends StandardView {
         usersDl.setParameter("filePath", filePath);
         usersDl.load();
         List<User> users = usersDl.getContainer().getItems();
-        List<ObjectDTO> dtos = new ArrayList<>();
+        List<Object> dtos = new ArrayList<>();
         for (User u : users) {
-            ObjectDTO dto = new ObjectDTO();
+            Object dto = new Object();
             dto.setId(u.getId().toString());   // để sau này load User
             dto.setName(u.getUsername());
             dto.setType(ObjectType.USER);
@@ -236,9 +237,9 @@ public class EditPermission extends StandardView {
         rolesDl.setParameter("filePath", filePath);
         rolesDl.load();
         List<ResourceRoleEntity> roles = rolesDl.getContainer().getItems();
-        List<ObjectDTO> dtos = new ArrayList<>();
+        List<Object> dtos = new ArrayList<>();
         for (ResourceRoleEntity r : roles) {
-            ObjectDTO dto = new ObjectDTO();
+            Object dto = new Object();
             dto.setId(r.getCode());    // code dùng làm key cho role
             dto.setName(r.getName());
             dto.setType(ObjectType.ROLE);
@@ -267,9 +268,9 @@ public class EditPermission extends StandardView {
             if (afterCloseEvent.closedWith(StandardOutcome.SAVE)) {
                 usersDl.setParameter("filePath", filePath);
                 usersDl.load();
-                List<ObjectDTO> dtos = new ArrayList<>();
+                List<Object> dtos = new ArrayList<>();
                 for (User u : usersDl.getContainer().getItems()) {
-                    ObjectDTO dto = new ObjectDTO();
+                    Object dto = new Object();
                     dto.setId(u.getId().toString());
                     dto.setName(u.getUsername());
                     dto.setType(ObjectType.USER);
@@ -280,7 +281,7 @@ public class EditPermission extends StandardView {
                 rolesDl.setParameter("filePath", filePath);
                 rolesDl.load();
                 for (ResourceRoleEntity r : rolesDl.getContainer().getItems()) {
-                    ObjectDTO dto = new ObjectDTO();
+                    Object dto = new Object();
                     dto.setId(r.getId().toString());
                     dto.setName(r.getName());
                     dto.setType(ObjectType.ROLE);
