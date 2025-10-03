@@ -18,6 +18,7 @@ import io.jmix.flowui.kit.component.button.JmixButton;
 import io.jmix.flowui.model.CollectionContainer;
 import io.jmix.flowui.model.CollectionLoader;
 import io.jmix.flowui.view.*;
+import io.jmix.securitydata.entity.ResourceRoleEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 
 @Route(value = "advance-security", layout = MainView.class)
@@ -33,9 +34,6 @@ public class AdvanceSecurity extends StandardView {
 
     @ViewComponent
     private DataGrid<Permission> permissionDataGrid;
-
-    @ViewComponent
-    private JmixCheckbox replaceChildPermissions;
 
     @ViewComponent
     private JmixButton disableInheritanceBtn;
@@ -97,6 +95,15 @@ public class AdvanceSecurity extends StandardView {
     @Subscribe
     public void onInit(InitEvent event) {
 
+        permissionDataGrid.addColumn(permission -> {
+            if (permission.getUser() != null) {
+                return permission.getUser().getUsername(); // hoặc getName()
+            } else if (permission.getRoleCode() != null) {
+                return permission.getRoleCode();
+            }
+            return "";
+        }).setHeader("Principal");
+
         permissionDataGrid.addColumn(
                 permission -> "Allow"
         ).setHeader("Type");
@@ -151,7 +158,6 @@ public class AdvanceSecurity extends StandardView {
     public void onDisableInheritanceBtnClick(final ClickEvent<JmixButton> event) {
         Permission permission = permissionDataGrid.getSingleSelectedItem();
         if (permission == null) {
-            // Không có record nào (Remove case). Hãy enable inheritance cho tất cả principals tại filePath.
             if (filePath != null && !filePath.isBlank()) {
                 securityService.enableRemoveInheritance(filePath);
                 permissionsDl.load();
@@ -163,18 +169,33 @@ public class AdvanceSecurity extends StandardView {
         if (Boolean.TRUE.equals(permission.getInheritEnabled())) {
             // Đang kế thừa → disable → mở dialog Convert/Remove
             DialogWindow<BlockInheritance> window = dialogWindows.view(this, BlockInheritance.class).build();
-            window.getView().setTarget(permission.getUser(), permission.getFilePath());
+
+            if (permission.getUser() != null) {
+                window.getView().setTargetUser(permission.getUser(), permission.getFilePath());
+            } else if (permission.getRoleCode() != null) {
+                // lấy ResourceRoleEntity từ roleCode
+                ResourceRoleEntity role = securityService.loadRoleByCode(permission.getRoleCode());
+                window.getView().setTargetRole(role, permission.getFilePath());
+            }
+
             window.addAfterCloseListener(e -> {
                 permissionsDl.load();
                 updateInheritanceButtonLabel(permissionDataGrid.getSingleSelectedItem());
             });
             window.open();
         } else {
-            // Đã disable → enable lại (user-specific)
-            securityService.enableInheritance(permission.getUser(), permission.getFilePath());
+            // Đã disable → enable lại
+            if (permission.getUser() != null) {
+                securityService.enableInheritance(permission.getUser(), permission.getFilePath());
+            } else if (permission.getRoleCode() != null) {
+                ResourceRoleEntity role = securityService.loadRoleByCode(permission.getRoleCode());
+                securityService.enableInheritance(role, permission.getFilePath());
+            }
+
             permissionsDl.load();
             updateInheritanceButtonLabel(permissionDataGrid.getSingleSelectedItem());
         }
+
     }
 
 

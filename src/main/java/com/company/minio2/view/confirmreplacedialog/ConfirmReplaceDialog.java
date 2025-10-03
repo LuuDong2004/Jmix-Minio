@@ -9,6 +9,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.router.Route;
 import io.jmix.flowui.kit.component.button.JmixButton;
 import io.jmix.flowui.view.*;
+import io.jmix.securitydata.entity.ResourceRoleEntity;
 import org.springframework.beans.factory.annotation.Autowired;
 
 
@@ -25,6 +26,8 @@ public class ConfirmReplaceDialog extends StandardView {
     String filePath = "";
 
     private User user;
+
+    private ResourceRoleEntity role;
 
     private Integer permissionMask;
 
@@ -48,14 +51,22 @@ public class ConfirmReplaceDialog extends StandardView {
         this.user = user;
     }
 
+    public void setRole(ResourceRoleEntity role) {
+        this.role = role;
+    }
+
     public void setPermissionMask(Integer permissionMask) {
         this.permissionMask = permissionMask;
     }
 
     @Subscribe(id = "yesBtn", subject = "clickListener")
     public void onYesBtnClick(final ClickEvent<JmixButton> event) {
-        if (user != null && filePath != null && permissionMask != null) {
-            securityService.replaceChildPermissions(user, filePath, permissionMask);
+        if (filePath != null && permissionMask != null) {
+            if (user != null) {
+                securityService.replaceChildPermissions(user, filePath, permissionMask);
+            } else if (role != null) {
+                securityService.replaceChildPermissions(role, filePath, permissionMask);
+            }
         }
         close(StandardOutcome.SAVE); // đóng dialog, báo cho view cha biết
     }
